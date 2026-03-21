@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: arclinktune-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./core:/app/core:ro
+      - ./backend:/app/backend:rw
+      - huggingface-cache:/root/.cache/huggingface
+      - modelscope-cache:/root/.cache/modelscope
+      - ./models:/root/models:rw
+      - ./output:/root/output:rw
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_HOME=/root/.cache/huggingface
+      - MODELSCOPE_CACHE=/root/.cache/modelscope
+      - PYTHONPATH=/app/core/LlamaFactory/src
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - arclinktune
+    restart: unless-stopped
+
+networks:
+  arclinktune:
+    driver: bridge
+
+volumes:
+  huggingface-cache:
+  modelscope-cache:
+  models:
+  output:

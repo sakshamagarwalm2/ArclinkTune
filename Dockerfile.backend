@@ -1,0 +1,30 @@
+# Build stage
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-venv \
+    python3-pip \
+    git \
+    wget \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install --no-cache-dir -r /tmp/requirements.txt
+
+COPY core/LlamaFactory /app/core/LlamaFactory
+COPY backend /app/backend
+
+ENV PYTHONPATH=/app/core/LlamaFactory/src:${PYTHONPATH} \
+    HF_HOME=/root/.cache/huggingface \
+    MODELSCOPE_CACHE=/root/.cache/modelscope
+
+RUN mkdir -p /root/models /root/output
+
+EXPOSE 8000
+
+CMD ["python3", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

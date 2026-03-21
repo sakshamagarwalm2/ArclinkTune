@@ -1,0 +1,258 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 98%;
+    --foreground: 220 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 10%;
+    --primary: 245 75% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 25% 10%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 45%;
+    --accent: 270 70% 94%;
+    --accent-foreground: 270 60% 35%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 245 75% 60%;
+    --radius: 0.75rem;
+    
+    /* Pastel accent colors */
+    --pastel-blue: 210 100% 92%;
+    --pastel-purple: 270 80% 90%;
+    --pastel-pink: 330 80% 92%;
+    --pastel-green: 150 60% 90%;
+    --pastel-yellow: 45 93% 90%;
+    --pastel-orange: 30 90% 90%;
+  }
+
+  .dark {
+    --background: 225 25% 8%;
+    --foreground: 220 15% 95%;
+    --card: 225 20% 11%;
+    --card-foreground: 220 15% 95%;
+    --popover: 225 20% 11%;
+    --popover-foreground: 220 15% 95%;
+    --primary: 245 75% 65%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 225 15% 16%;
+    --secondary-foreground: 220 15% 95%;
+    --muted: 225 15% 16%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 270 40% 22%;
+    --accent-foreground: 270 60% 75%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 225 15% 20%;
+    --input: 225 15% 20%;
+    --ring: 245 75% 65%;
+    --radius: 0.75rem;
+    
+    /* Dark mode pastel accents */
+    --pastel-blue: 215 50% 25%;
+    --pastel-purple: 270 40% 25%;
+    --pastel-pink: 330 40% 25%;
+    --pastel-green: 150 40% 20%;
+    --pastel-yellow: 45 50% 25%;
+    --pastel-orange: 30 50% 25%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* Gradient backgrounds */
+.gpu-gradient {
+  background: linear-gradient(135deg, #818cf8 0%, #a78bfa 50%, #c4b5fd 100%);
+}
+
+.training-gradient {
+  background: linear-gradient(135deg, #6ee7b7 0%, #34d399 50%, #10b981 100%);
+}
+
+.chat-gradient {
+  background: linear-gradient(135deg, #fda4af 0%, #fbcfe8 50%, #f5d0fe 100%);
+}
+
+/* Glass effect */
+.glass {
+  background: hsl(var(--card) / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Soft shadows */
+.soft-shadow {
+  box-shadow: 0 4px 20px -5px hsl(var(--foreground) / 0.1);
+}
+
+.soft-shadow-lg {
+  box-shadow: 0 10px 40px -10px hsl(var(--foreground) / 0.15);
+}
+
+/* Hover effects */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px hsl(var(--foreground) / 0.15);
+}
+
+/* Status indicators */
+.status-online {
+  @apply relative;
+}
+
+.status-online::after {
+  content: '';
+  @apply absolute top-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background;
+  animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+/* Card hover effect */
+.card-hover {
+  @apply transition-all duration-300;
+}
+
+.card-hover:hover {
+  @apply soft-shadow-lg;
+  transform: translateY(-1px);
+}
+
+/* Sidebar active indicator */
+.nav-active {
+  @apply relative overflow-hidden;
+}
+
+.nav-active::before {
+  content: '';
+  @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full;
+  background: linear-gradient(180deg, #818cf8 0%, #a78bfa 100%);
+}
+
+/* Input focus glow */
+.input-glow:focus {
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
+}
+
+/* Button press effect */
+.btn-press:active {
+  transform: scale(0.97);
+}
+
+/* Loading skeleton */
+.skeleton {
+  @apply animate-pulse bg-gradient-to-r from-muted via-muted/50 to-muted;
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Badge styles */
+.badge-pastel-blue {
+  background: hsl(210, 100%, 92%);
+  color: hsl(210, 80%, 35%);
+}
+
+.badge-pastel-purple {
+  background: hsl(270, 80%, 90%);
+  color: hsl(270, 60%, 40%);
+}
+
+.badge-pastel-green {
+  background: hsl(150, 60%, 90%);
+  color: hsl(150, 60%, 30%);
+}
+
+.badge-pastel-yellow {
+  background: hsl(45, 93%, 90%);
+  color: hsl(45, 80%, 40%);
+}
+
+.dark .badge-pastel-blue {
+  background: hsl(215, 50%, 25%);
+  color: hsl(210, 80%, 75%);
+}
+
+.dark .badge-pastel-purple {
+  background: hsl(270, 40%, 25%);
+  color: hsl(270, 60%, 80%);
+}
+
+.dark .badge-pastel-green {
+  background: hsl(150, 40%, 20%);
+  color: hsl(150, 60%, 75%);
+}
+
+.dark .badge-pastel-yellow {
+  background: hsl(45, 50%, 25%);
+  color: hsl(45, 80%, 80%);
+}

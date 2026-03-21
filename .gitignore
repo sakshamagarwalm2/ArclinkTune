@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+app/dist/
+app/build/
+app/.vite/
+*.egg-info/
+
+# Virtual environments
+environment/venv/
+environment/.venv/
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-dist
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Training outputs
+output/
+outputs/
+checkpoints/
+*.ckpt
+*.safetensors
+*.bin
+
+# Models cache
+models/
+huggingface/
+.cache/
+
+# Temp files
+tmp/
+temp/
+*.tmp
+
+# Backend
+backend/__pycache__/
+backend/*.pyc
+
+# Core (LlamaFactory - keep as external)
+core/
+
+# Misc
+*.bak
+*.orig
+nul
