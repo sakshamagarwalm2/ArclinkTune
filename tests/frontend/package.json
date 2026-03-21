@@ -1,0 +1,17 @@
+{
+  "name": "arclinktune-tests",
+  "version": "1.0.0",
+  "description": "Test suite for ArclinkTune application",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "test:debug": "playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.0",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0"
+  }
+}
