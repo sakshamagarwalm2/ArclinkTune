@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="app/src/assets/baner.png" alt="ArclinkTune Banner" width="100%" />
+</div>
+
 # ArclinkTune
 
 A modern desktop application for fine-tuning and managing custom language models. Built with Electron + React frontend and FastAPI backend, leveraging LlamaFactory for training.

@@ -10,8 +10,9 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
 } from 'lucide-react'
+
+import logoUrl from '../../../assets/Logo.png'
 
 const navItems = [
   { path: '/models', icon: Bot, label: 'Models', description: 'Browse & download LLMs' },
@@ -39,12 +40,12 @@ export function Sidebar() {
       <div className="h-16 flex items-center justify-center border-b border-border/50 dark:border-primary/5">
         {collapsed ? (
           <div className="w-10 h-10 rounded-xl brand-gradient flex items-center justify-center shadow-neon">
-            <Sparkles className="w-5 h-5 text-white" />
+            <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover bg-white/10" />
           </div>
         ) : (
           <div className="flex items-center gap-3 px-4">
             <div className="w-10 h-10 rounded-xl brand-gradient flex items-center justify-center shadow-neon">
-              <Sparkles className="w-5 h-5 text-white" />
+              <img src={logoUrl} alt="Logo" className="w-10 h-10 rounded-xl object-cover bg-white/10" />
             </div>
             <div>
               <span className="font-bold text-lg bg-gradient-to-r from-primary to-neon-violet bg-clip-text text-transparent">

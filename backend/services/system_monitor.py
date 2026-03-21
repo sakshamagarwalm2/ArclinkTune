@@ -1,18 +1,43 @@
 import psutil
 import platform
 import time
+import os
+import shutil
 from typing import List, Optional, Dict, Any
 
 try:
     import pynvml
+    
+    # Windows fallback for nvml.dll if it's not in Program Files
+    if platform.system() == 'Windows':
+        local_nvml_dir = os.path.join(os.path.dirname(__file__), "NVIDIA Corporation", "NVSMI")
+        std_path = os.path.join(os.environ.get("ProgramFiles", "C:/Program Files"), "NVIDIA Corporation", "NVSMI", "nvml.dll")
+        
+        if not os.path.exists(std_path):
+            os.makedirs(local_nvml_dir, exist_ok=True)
+            sys32_path = r"C:\Windows\System32\nvml.dll"
+            local_dll = os.path.join(local_nvml_dir, "nvml.dll")
+            
+            if not os.path.exists(local_dll) and os.path.exists(sys32_path):
+                try:
+                    shutil.copy2(sys32_path, local_dll)
+                except Exception:
+                    pass
+            
+            if os.path.exists(local_dll):
+                # Temporary override just for pynvml.nvmlInit()
+                os.environ["ProgramFiles"] = os.path.dirname(__file__)
+                
     PYNVML_AVAILABLE = True
 except ImportError:
     PYNVML_AVAILABLE = False
 
+_NVML_FAILED = False
 
 def get_gpu_stats() -> List[Dict[str, Any]]:
+    global _NVML_FAILED
     gpus = []
-    if PYNVML_AVAILABLE:
+    if PYNVML_AVAILABLE and not _NVML_FAILED:
         try:
             pynvml.nvmlInit()
             device_count = pynvml.nvmlDeviceGetCount()
@@ -47,7 +72,9 @@ def get_gpu_stats() -> List[Dict[str, Any]]:
                 
                 try:
                     driver = pynvml.nvmlSystemGetDriverVersion()
-                except:
+                    if isinstance(driver, bytes):
+                        driver = driver.decode('utf-8')
+                except Exception:
                     driver = "N/A"
                 
                 gpus.append({
@@ -66,7 +93,8 @@ def get_gpu_stats() -> List[Dict[str, Any]]:
             
             pynvml.nvmlShutdown()
         except Exception as e:
-            print(f"Error getting GPU stats: {e}")
+            _NVML_FAILED = True
+            print(f"NVML monitoring disabled. Could not detect GPU: {e}")
     
     if not gpus:
         gpus.append({

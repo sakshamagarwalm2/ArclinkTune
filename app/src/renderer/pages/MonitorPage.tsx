@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { LineChart, Line, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useSystemStats } from '@/hooks/useSystemStats'
 import { Monitor, Cpu, MemoryStick, Activity, Thermometer, Pause, Play, Download } from 'lucide-react'
+import type { GPUStats } from '@/hooks/useApi'
 
 // Mock historical data for charts
 const generateMockHistory = (baseValue: number, variance: number, length = 30) => {
@@ -14,18 +15,89 @@ const generateMockHistory = (baseValue: number, variance: number, length = 30) =
   }))
 }
 
+function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
+  const gpuHistory = useMemo(() => generateMockHistory(gpu.utilization_percent || 10, 5), [gpu.utilization_percent, isPaused])
+
+  return (
+    <Card className="glass-card hover:shadow-neon transition-shadow flex-col md:col-span-2 lg:col-span-1 border-neon-green/30">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center">
+              <Cpu className="w-4 h-4 text-neon-green" />
+            </div>
+            Graphics (GPU)
+          </CardTitle>
+          <span className="text-2xl font-bold tabular-nums text-neon-green">
+            {gpu.utilization_percent?.toFixed(1) || 0}%
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="h-[120px] w-full mt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={gpuHistory}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+              <YAxis domain={[0, 100]} hide />
+              <Tooltip 
+                contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                itemStyle={{ color: 'hsl(142, 60%, 45%)' }}
+                labelStyle={{ display: 'none' }}
+                formatter={(val: number) => [`${val.toFixed(1)}%`, 'Usage']}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke="hsl(142, 60%, 45%)" 
+                strokeWidth={2} 
+                dot={false}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="space-y-3 mt-4">
+          <div>
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-muted-foreground">VRAM Usage</span>
+              <span className="font-medium tabular-nums text-neon-green">
+                {gpu.memory_used_gb?.toFixed(1) || 0} / {gpu.memory_total_gb?.toFixed(1) || 0} GB
+              </span>
+            </div>
+            <Progress 
+              value={(gpu.memory_used_gb / gpu.memory_total_gb) * 100 || 0} 
+              className="h-1.5" 
+              variant="green"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-sm pt-1">
+            <div>
+              <p className="text-muted-foreground text-xs">Model</p>
+              <p className="font-medium truncate" title={gpu.name}>{gpu.name}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs flex items-center gap-1">
+                <Thermometer className="w-3 h-3 text-neon-amber" /> Temperature
+              </p>
+              <p className="font-medium tabular-nums">{gpu.temperature_celsius || 0}°C</p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function MonitorPage() {
   const [isPaused, setIsPaused] = useState(false)
   const { stats, error, refresh } = useSystemStats(isPaused ? undefined : 2000)
 
   // Memoize history data to prevent excessive re-renders (in a real app, this would be accumulated state)
   const cpuHistory = useMemo(() => generateMockHistory(stats?.cpu?.utilization_percent || 30, 15), [stats?.cpu?.utilization_percent])
-  const gpuHistory = useMemo(() => generateMockHistory(stats?.gpu?.[0]?.utilization_percent || 10, 5), [stats?.gpu?.[0]?.utilization_percent])
   const ramHistory = useMemo(() => generateMockHistory(stats?.memory?.ram_percent || 45, 2), [stats?.memory?.ram_percent])
 
   const cpuData = stats?.cpu
   const memData = stats?.memory
-  const gpuData = stats?.gpu?.[0]
 
   return (
     <div className="space-y-6">
@@ -170,79 +242,24 @@ export function MonitorPage() {
             </CardContent>
           </Card>
 
-          {/* GPU Card */}
-          <Card className="glass-card hover:shadow-neon transition-shadow flex-col md:col-span-2 lg:col-span-1 border-neon-green/30">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center">
-                    <Cpu className="w-4 h-4 text-neon-green" />
-                  </div>
-                  Graphics (GPU)
-                </CardTitle>
-                {gpuData ? (
-                  <span className="text-2xl font-bold tabular-nums text-neon-green">
-                    {gpuData.utilization_percent?.toFixed(1) || 0}%
-                  </span>
-                ) : (
+          {stats?.gpu?.filter(gpu => gpu.name !== 'No GPU Detected').length ? (
+            stats.gpu.filter(gpu => gpu.name !== 'No GPU Detected').map((gpu, idx) => (
+              <GPUCard key={idx} gpu={gpu} isPaused={isPaused} />
+            ))
+          ) : (
+            <Card className="glass-card flex-col md:col-span-2 lg:col-span-1 border-neon-green/30">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center">
+                      <Cpu className="w-4 h-4 text-neon-green" />
+                    </div>
+                    Graphics (GPU)
+                  </CardTitle>
                   <span className="text-sm font-medium text-muted-foreground">Not Detected</span>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {gpuData ? (
-                <>
-                  <div className="h-[120px] w-full mt-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={gpuHistory}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
-                        <YAxis domain={[0, 100]} hide />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
-                          itemStyle={{ color: 'hsl(142, 60%, 45%)' }}
-                          labelStyle={{ display: 'none' }}
-                          formatter={(val: number) => [`${val.toFixed(1)}%`, 'Usage']}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="hsl(142, 60%, 45%)" 
-                          strokeWidth={2} 
-                          dot={false}
-                          isAnimationActive={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-3 mt-4">
-                    <div>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-muted-foreground">VRAM Usage</span>
-                        <span className="font-medium tabular-nums text-neon-green">
-                          {gpuData.memory_used_gb?.toFixed(1) || 0} / {gpuData.memory_total_gb?.toFixed(1) || 0} GB
-                        </span>
-                      </div>
-                      <Progress 
-                        value={(gpuData.memory_used_gb / gpuData.memory_total_gb) * 100 || 0} 
-                        className="h-1.5" 
-                        variant="green"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 text-sm pt-1">
-                      <div>
-                        <p className="text-muted-foreground text-xs">Model</p>
-                        <p className="font-medium truncate" title={gpuData.name}>{gpuData.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs flex items-center gap-1">
-                          <Thermometer className="w-3 h-3 text-neon-amber" /> Temperature
-                        </p>
-                        <p className="font-medium tabular-nums">{gpuData.temperature_celsius || 0}°C</p>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="h-[220px] flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <Cpu className="w-12 h-12 mx-auto mb-3 opacity-20" />
@@ -250,9 +267,9 @@ export function MonitorPage() {
                     <p className="text-xs mt-1">Make sure drivers are installed</p>
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

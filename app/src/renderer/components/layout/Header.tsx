@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { Sun, Moon, Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { useTheme } from '@/hooks/useTheme'
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
@@ -30,18 +30,14 @@ export function Header() {
       </div>
       <div className="flex items-center gap-2">
         {/* Theme Toggle */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={toggleTheme}
-          className="h-9 w-9 p-0 hover:bg-accent/50 rounded-xl"
-        >
-          {theme === 'dark' ? (
-            <Sun className="w-4 h-4 text-neon-amber transition-transform hover:rotate-45" />
-          ) : (
-            <Moon className="w-4 h-4 text-neon-violet transition-transform hover:-rotate-12" />
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Sun className="w-4 h-4 text-neon-amber" />
+          <Switch
+            checked={theme === 'dark'}
+            onCheckedChange={toggleTheme}
+          />
+          <Moon className="w-4 h-4 text-neon-violet" />
+        </div>
 
         <div className="h-5 w-px bg-border/50 mx-1" />
 

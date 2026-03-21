@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+
 import { useTheme } from './hooks/useTheme'
 import { Layout } from './components/layout/Layout'
 import { ModelsPage } from './pages/ModelsPage'
@@ -11,7 +12,7 @@ import { MonitorPage } from './pages/MonitorPage'
 import { SetupPage } from './pages/SetupPage'
 
 function App() {
-  const { theme } = useTheme()
+  useTheme()
   const [isFirstLaunch, setIsFirstLaunch] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -52,7 +53,7 @@ function App() {
   }
 
   return (
-    <div className={theme}>
+    <>
       <Layout>
         <Routes>
           <Route path="/" element={<Navigate to="/models" replace />} />
@@ -64,7 +65,7 @@ function App() {
           <Route path="/monitor" element={<MonitorPage />} />
         </Routes>
       </Layout>
-    </div>
+    </>
   )
 }
 
