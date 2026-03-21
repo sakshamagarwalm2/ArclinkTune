@@ -75,14 +75,30 @@ ArclinkTune/
 - **NVIDIA GPU** (optional, for GPU training)
 - **CUDA** (optional, for GPU acceleration)
 
-## Quick Start
+## 🚀 One-Click Execution (Recommended)
 
-### 1. Install Frontend Dependencies
+To set up everything and start both the backend and frontend with a single command, simply run the launcher from the project root:
 
-```bash
-cd app
-npm install
+```powershell
+# Windows (PowerShell)
+.\run.ps1
 ```
+
+```batch
+# Windows (Command Prompt)
+run.bat
+```
+
+This script will:
+1. Automatically set up the **Python Virtual Environment** if missing.
+2. Install all **Backend Dependencies** (`requirements.txt`).
+3. Install all **Frontend Dependencies** (`node_modules`) if missing.
+4. Launch the **FastAPI Backend** in a new dedicated terminal.
+5. Launch the **Vite Frontend** in the current terminal.
+
+---
+
+## 🛠 Manual Quick Start
 
 ### 2. Set Up Python Environment
 
