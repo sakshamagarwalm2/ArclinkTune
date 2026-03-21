@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/hooks/useApi'
 import { Send, Bot, User, Trash2, Image, Video, Mic, Settings, Play, Square, ArrowRight } from 'lucide-react'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -129,7 +130,10 @@ export function ChatPage() {
           <CardContent className="space-y-3">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Model Path</label>
+                <div className="flex items-center">
+                  <label className="text-sm font-medium">Model Path</label>
+                  <InfoTooltip content="Path to the base model on your disk or HuggingFace." impact="Required for the chat interface to load and process requests." />
+                </div>
                 <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
                   Browse <ArrowRight className="w-3 h-3" />
                 </Link>
@@ -143,7 +147,10 @@ export function ChatPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Checkpoint Path</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Checkpoint Path</label>
+                <InfoTooltip content="Optional path to a fine-tuned LoRA adapter." impact="Applies your specific training weights on top of the base model." />
+              </div>
               <Input 
                 value={checkpointPath} 
                 onChange={(e) => setCheckpointPath(e.target.value)}
@@ -154,7 +161,10 @@ export function ChatPage() {
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium">Fine-tuning</label>
+                <div className="flex items-center">
+                  <label className="text-xs font-medium">Fine-tuning</label>
+                  <InfoTooltip content="The type of model weights to load (LoRA, Full, etc.)." impact="Determines whether to load just adapters or the entire model parameters." />
+                </div>
                 <Select value={finetuningType} onValueChange={setFinetuningType} disabled={isModelLoaded}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
@@ -167,7 +177,10 @@ export function ChatPage() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium">Template</label>
+                <div className="flex items-center">
+                  <label className="text-xs font-medium">Template</label>
+                  <InfoTooltip content="The conversation format for the specific model architecture." impact="Matches the prompt structure to the way the model was trained (e.g. Llama 3 v Qwen)." />
+                </div>
                 <Select value={template} onValueChange={setTemplate} disabled={isModelLoaded}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
@@ -183,16 +196,19 @@ export function ChatPage() {
               </div>
             </div>
 
-            {isModelLoaded ? (
-              <Button variant="outline" className="w-full" onClick={unloadModel}>
-                <Square className="w-4 h-4 mr-2" /> Unload Model
-              </Button>
-            ) : (
-              <Button className="w-full" onClick={loadModel} disabled={isLoading || !modelPath}>
-                <Play className="w-4 h-4 mr-2" /> 
-                {isLoading ? 'Loading...' : 'Load Model'}
-              </Button>
-            )}
+            <div className="relative group">
+              {isModelLoaded ? (
+                <Button variant="outline" className="w-full" onClick={unloadModel}>
+                  <Square className="w-4 h-4 mr-2" /> Unload Model
+                </Button>
+              ) : (
+                <Button className="w-full" onClick={loadModel} disabled={isLoading || !modelPath}>
+                  <Play className="w-4 h-4 mr-2" /> 
+                  {isLoading ? 'Loading...' : 'Load Model'}
+                </Button>
+              )}
+              <InfoTooltip content="Initiates or terminates the model inference engine." impact="Loading takes VRAM; unloading frees it for other tasks like training." />
+            </div>
           </CardContent>
         </Card>
 
@@ -204,7 +220,10 @@ export function ChatPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Max Tokens: <span className="text-primary tabular-nums">{maxTokens}</span></label>
+              <div className="flex items-center">
+                <label className="text-xs font-medium">Max Tokens: <span className="text-primary tabular-nums">{maxTokens}</span></label>
+                <InfoTooltip content="Upper limit on the number of tokens the model can generate." impact="Prevents overly long responses and controls generation cost/time." />
+              </div>
               <Slider 
                 value={[maxTokens]} 
                 min={8} max={8192} step={8}
@@ -213,7 +232,10 @@ export function ChatPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Temperature: <span className="text-primary tabular-nums">{temperature.toFixed(2)}</span></label>
+              <div className="flex items-center">
+                <label className="text-xs font-medium">Temperature: <span className="text-primary tabular-nums">{temperature.toFixed(2)}</span></label>
+                <InfoTooltip content="Controls the randomness and 'creativity' of the output." impact="0.1 is very literal/predictable; 1.0+ is highly creative/diverse." />
+              </div>
               <Slider 
                 value={[temperature * 100]} 
                 min={1} max={150} step={1}
@@ -222,7 +244,10 @@ export function ChatPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Top-P: <span className="text-primary tabular-nums">{topP.toFixed(2)}</span></label>
+              <div className="flex items-center">
+                <label className="text-xs font-medium">Top-P: <span className="text-primary tabular-nums">{topP.toFixed(2)}</span></label>
+                <InfoTooltip content="Nucleus sampling threshold for filtered token selection." impact="Balances output variety by ignoring low-probability 'junk' words." />
+              </div>
               <Slider 
                 value={[topP * 100]} 
                 min={1} max={100} step={1}
@@ -231,7 +256,10 @@ export function ChatPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Top-K: <span className="text-primary tabular-nums">{topK}</span></label>
+              <div className="flex items-center">
+                <label className="text-xs font-medium">Top-K: <span className="text-primary tabular-nums">{topK}</span></label>
+                <InfoTooltip content="Only considers the top 'K' most likely tokens for sampling." impact="Higher K maintains diversity; lower K keeps the response focused." />
+              </div>
               <Slider 
                 value={[topK]} 
                 min={1} max={100} step={1}
@@ -240,7 +268,10 @@ export function ChatPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Rep. Penalty: <span className="text-primary tabular-nums">{repetitionPenalty.toFixed(2)}</span></label>
+              <div className="flex items-center">
+                <label className="text-xs font-medium">Rep. Penalty: <span className="text-primary tabular-nums">{repetitionPenalty.toFixed(2)}</span></label>
+                <InfoTooltip content="Penalty applied to tokens that have already appeared." impact="Higher values (e.g. 1.2) significantly reduce repetitive phrases." />
+              </div>
               <Slider 
                 value={[repetitionPenalty * 10]} 
                 min={10} max={20} step={1}
@@ -288,7 +319,10 @@ export function ChatPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">System Prompt</label>
+              <div className="flex items-center">
+                <label className="text-xs font-medium">System Prompt</label>
+                <InfoTooltip content="Initial instructions that define the model's persona." impact="Guides the model's tone, rules, and fundamental behavior." />
+              </div>
               <Input 
                 value={systemPrompt} 
                 onChange={(e) => setSystemPrompt(e.target.value)}
@@ -316,7 +350,10 @@ export function ChatPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Extra Args (JSON)</label>
+              <div className="flex items-center">
+                <label className="text-xs font-medium">Extra Args (JSON)</label>
+                <InfoTooltip content="Advanced engine-level parameters in JSON format." impact="Allows expert users to fine-tune the inference backend behavior." />
+              </div>
               <Input 
                 value={extraArgs} 
                 onChange={(e) => setExtraArgs(e.target.value)}
@@ -345,9 +382,12 @@ export function ChatPage() {
               ) : (
                 <Badge variant="secondary">No Model Loaded</Badge>
               )}
-              <Button variant="outline" size="sm" onClick={clearChat} disabled={messages.length === 0}>
-                <Trash2 className="w-4 h-4 mr-1" /> Clear
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button variant="outline" size="sm" onClick={clearChat} disabled={messages.length === 0} className="h-8">
+                  <Trash2 className="w-3.5 h-3.5 mr-1" /> Clear
+                </Button>
+                <InfoTooltip content="Wipes the current conversation history." impact="Resets the context window for the model, starting a fresh session." />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -408,15 +448,18 @@ export function ChatPage() {
           {/* Input Area */}
           <div className="border-t border-border/50 pt-4">
             <div className="flex gap-2">
-              <Button variant="outline" size="icon" disabled={!isModelLoaded} className="flex-shrink-0">
-                <Image className="w-4 h-4" />
-              </Button>
-              <Button variant="outline" size="icon" disabled={!isModelLoaded} className="flex-shrink-0">
-                <Video className="w-4 h-4" />
-              </Button>
-              <Button variant="outline" size="icon" disabled={!isModelLoaded} className="flex-shrink-0">
-                <Mic className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/50">
+                <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
+                  <Image className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
+                  <Video className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
+                  <Mic className="w-4 h-4" />
+                </Button>
+                <InfoTooltip content="Multimedia input tools (Image, Video, Audio)." impact="Allows interacting with multi-modal LLMs that support visual/audio processing." />
+              </div>
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

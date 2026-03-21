@@ -12,6 +12,7 @@ import {
   Search, Download, Bot, HardDrive, RefreshCw,
   Grid3x3, List, GraduationCap, MessageSquare, ArrowRight, Sparkles
 } from 'lucide-react'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 
 const POPULAR_MODELS = [
   { id: 1, name: 'Llama-3.1-8B-Instruct', provider: 'Meta', downloads: '45M', size: '4.7GB', template: 'llama3' },
@@ -105,7 +106,7 @@ export function ModelsPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex gap-3">
-            <div className="relative flex-1">
+            <div className="relative flex-1 group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
@@ -113,17 +114,21 @@ export function ModelsPage() {
                 placeholder="Search models by name or provider..."
                 className="pl-10"
               />
+              <InfoTooltip content="Search through various LLM architectures." impact="Helps you find specific models like Llama, Qwen, or Mistral." />
             </div>
-            <Select value={selectedHub} onValueChange={setSelectedHub}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HUB_OPTIONS.map(hub => (
-                  <SelectItem key={hub.value} value={hub.value}>{hub.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center">
+              <Select value={selectedHub} onValueChange={setSelectedHub}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {HUB_OPTIONS.map(hub => (
+                    <SelectItem key={hub.value} value={hub.value}>{hub.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <InfoTooltip content="Choose between HuggingFace, ModelScope, or OpenMind." impact="Changes the search source and download server for models." />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -191,6 +196,7 @@ export function ModelsPage() {
                         </>
                       )}
                     </Button>
+                    <InfoTooltip content="Download model weights to your local machine." impact="Required before you can use this model for training or inference." />
                     {/* Interlink CTAs */}
                     <div className="flex gap-2 pt-1">
                       <Link to="/train" className="flex-1">
@@ -287,7 +293,10 @@ export function ModelsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Model URL</label>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">Model URL</label>
+                    <InfoTooltip content="Full repository ID (e.g. 'meta-llama/Llama-2-7b-hf')." impact="Required to fetch models that aren't in the preset popular list." />
+                  </div>
                   <Input 
                     value={customModelPath}
                     onChange={(e) => setCustomModelPath(e.target.value)}
@@ -337,7 +346,10 @@ export function ModelsPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Quantization</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Quantization</label>
+                      <InfoTooltip content="Download model with pre-applied compression." impact="Significantly reduces disk and VRAM requirements for the model." />
+                    </div>
                     <Select defaultValue="none">
                       <SelectTrigger>
                         <SelectValue />
@@ -350,7 +362,10 @@ export function ModelsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Template</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Template</label>
+                      <InfoTooltip content="The format used for prompts and conversations." impact="Must match the model's architecture (e.g. use 'llama3' for Llama-3)." />
+                    </div>
                     <Select defaultValue="default">
                       <SelectTrigger>
                         <SelectValue />
@@ -368,7 +383,10 @@ export function ModelsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Max Memory (GB)</label>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">Max Memory (GB)</label>
+                    <InfoTooltip content="Safety limit for the total VRAM usage of this model." impact="Prevents 'Out of Memory' crashes by capping resource allocation." />
+                  </div>
                   <Slider defaultValue={[24]} min={1} max={80} step={1} />
                   <p className="text-xs text-muted-foreground">Maximum GPU memory to allocate</p>
                 </div>

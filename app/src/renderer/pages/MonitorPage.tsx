@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { LineChart, Line, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useSystemStats } from '@/hooks/useSystemStats'
 import { Monitor, Cpu, MemoryStick, Activity, Thermometer, Pause, Play, Download } from 'lucide-react'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 import type { GPUStats } from '@/hooks/useApi'
 
 // Mock historical data for charts
@@ -27,6 +28,7 @@ function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
               <Cpu className="w-4 h-4 text-neon-green" />
             </div>
             Graphics (GPU)
+            <InfoTooltip content="Graphics Processing Unit utilization." impact="High usage during training or inference indicates GPU is working at capacity." />
           </CardTitle>
           <span className="text-2xl font-bold tabular-nums text-neon-green">
             {gpu.utilization_percent?.toFixed(1) || 0}%
@@ -59,7 +61,10 @@ function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
         <div className="space-y-3 mt-4">
           <div>
             <div className="flex justify-between text-xs mb-1">
-              <span className="text-muted-foreground">VRAM Usage</span>
+              <div className="flex items-center">
+                <span className="text-muted-foreground mr-1">VRAM Usage</span>
+                <InfoTooltip content="Video RAM currently in use by the GPU." impact="Running out of VRAM will cause 'Out of Memory' errors during training." />
+              </div>
               <span className="font-medium tabular-nums text-neon-green">
                 {gpu.memory_used_gb?.toFixed(1) || 0} / {gpu.memory_total_gb?.toFixed(1) || 0} GB
               </span>
@@ -78,6 +83,7 @@ function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
             <div>
               <p className="text-muted-foreground text-xs flex items-center gap-1">
                 <Thermometer className="w-3 h-3 text-neon-amber" /> Temperature
+                <InfoTooltip content="Current core temperature of the GPU." impact="High temperatures can lead to thermal throttling and reduced performance." />
               </p>
               <p className="font-medium tabular-nums">{gpu.temperature_celsius || 0}°C</p>
             </div>
@@ -147,6 +153,7 @@ export function MonitorPage() {
                     <Cpu className="w-4 h-4 text-primary" />
                   </div>
                   Processor (CPU)
+                  <InfoTooltip content="Central Processing Unit usage across all cores." impact="High CPU usage is normal during data loading or preprocessing." />
                 </CardTitle>
                 <span className="text-2xl font-bold tabular-nums text-primary">
                   {cpuData?.utilization_percent?.toFixed(1) || 0}%
@@ -198,6 +205,7 @@ export function MonitorPage() {
                     <MemoryStick className="w-4 h-4 text-neon-violet" />
                   </div>
                   System Memory (RAM)
+                  <InfoTooltip content="Overall system memory utilization." impact="Essential for loading datasets and keeping the application responsive." />
                 </CardTitle>
                 <span className="text-2xl font-bold tabular-nums text-neon-violet">
                   {memData?.ram_percent?.toFixed(1) || 0}%
@@ -278,6 +286,7 @@ export function MonitorPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Download className="w-4 h-4 text-primary" /> Storage
+            <InfoTooltip content="Total and used space on your local storage drives." impact="Ensure you have enough space for model weights and training checkpoints." />
           </CardTitle>
           <CardDescription>Disk space utilization</CardDescription>
         </CardHeader>

@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight } from 'lucide-react'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 
 export function EvaluatePage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -85,7 +86,10 @@ export function EvaluatePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Model Path</label>
+                <div className="flex items-center">
+                  <label className="text-sm font-medium">Model Path</label>
+                  <InfoTooltip content="The base model you wish to evaluate for performance." impact="Required to load the architecture and initial weights." />
+                </div>
                 <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
                   <Bot className="w-3 h-3" /> Browse <ArrowRight className="w-3 h-3" />
                 </Link>
@@ -98,7 +102,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Checkpoint Path</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Checkpoint Path</label>
+                <InfoTooltip content="Optional adapter checkpoint for evaluation." impact="Allows testing of your specific fine-tuned adjustments." />
+              </div>
               <Input 
                 value={checkpointPath} 
                 onChange={(e) => setCheckpointPath(e.target.value)}
@@ -107,7 +114,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Fine-tuning Type</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Fine-tuning Type</label>
+                <InfoTooltip content="Common methods like LoRA, Full Parameter, or Freeze." impact="Matches the loading strategy used during training." />
+              </div>
               <Select value={finetuningType} onValueChange={setFinetuningType}>
                 <SelectTrigger>
                   <SelectValue />
@@ -121,7 +131,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Template</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Template</label>
+                <InfoTooltip content="The conversation format for the specific model architecture." impact="Ensures prompts are structured correctly for the model to understand." />
+              </div>
               <Select value={template} onValueChange={setTemplate}>
                 <SelectTrigger>
                   <SelectValue />
@@ -144,7 +157,10 @@ export function EvaluatePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Dataset Directory</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Dataset Directory</label>
+                <InfoTooltip content="Folder containing your benchmark data files." impact="Required for the tool to locate and load evaluation samples." />
+              </div>
               <Input 
                 value={datasetDir} 
                 onChange={(e) => setDatasetDir(e.target.value)}
@@ -153,7 +169,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Dataset</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Dataset</label>
+                <InfoTooltip content="Benchmark datasets to use (e.g., MMLU, GSM8K)." impact="Different datasets test different reasoning and knowledge skills." />
+              </div>
               <Input 
                 value={dataset} 
                 onChange={(e) => setDataset(e.target.value)}
@@ -163,7 +182,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Cutoff Length: <span className="text-primary tabular-nums">{cutoffLen}</span></label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Cutoff Length: <span className="text-primary tabular-nums">{cutoffLen}</span></label>
+                <InfoTooltip content="Maximum number of tokens per evaluation example." impact="Higher values test long-context reasoning but require more VRAM." />
+              </div>
               <Slider 
                 value={[cutoffLen]} 
                 min={4} max={16384} step={4}
@@ -172,7 +194,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Max Samples</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Max Samples</label>
+                <InfoTooltip content="Number of examples to evaluate from the dataset." impact="Fewer is faster; more gives a more statistically significant score." />
+              </div>
               <Input 
                 type="number"
                 value={maxSamples} 
@@ -181,7 +206,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Batch Size: <span className="text-primary tabular-nums">{batchSize}</span></label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Batch Size: <span className="text-primary tabular-nums">{batchSize}</span></label>
+                <InfoTooltip content="Number of samples evaluated in parallel." impact="Higher speeds up evaluation but consumes more graphics memory." />
+              </div>
               <Slider 
                 value={[batchSize]} 
                 min={1} max={64} step={1}
@@ -203,7 +231,10 @@ export function EvaluatePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Max New Tokens: <span className="text-primary tabular-nums">{maxNewTokens}</span></label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Max New Tokens: <span className="text-primary tabular-nums">{maxNewTokens}</span></label>
+                <InfoTooltip content="Limit on the length of the AI's generated response." impact="Prevents infinite generation and keeps evaluation times predictable." />
+              </div>
               <Slider 
                 value={[maxNewTokens]} 
                 min={8} max={4096} step={8}
@@ -212,7 +243,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Temperature: <span className="text-primary tabular-nums">{temperature.toFixed(2)}</span></label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Temperature: <span className="text-primary tabular-nums">{temperature.toFixed(2)}</span></label>
+                <InfoTooltip content="Controls the randomness of the model's output." impact="Lower values (e.g. 0.1) are better for logical benchmarks; higher (0.9) for creativity." />
+              </div>
               <Slider 
                 value={[temperature * 100]} 
                 min={1} max={150} step={1}
@@ -221,7 +255,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Top-P: <span className="text-primary tabular-nums">{topP.toFixed(2)}</span></label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Top-P: <span className="text-primary tabular-nums">{topP.toFixed(2)}</span></label>
+                <InfoTooltip content="Nucleus sampling threshold for token selection." impact="Filters out low-probability tokens to maintain response quality." />
+              </div>
               <Slider 
                 value={[topP * 100]} 
                 min={1} max={100} step={1}
@@ -238,7 +275,10 @@ export function EvaluatePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Output Directory</label>
+              <div className="flex items-center">
+                <label className="text-sm font-medium">Output Directory</label>
+                <InfoTooltip content="Where the benchmark results (scores, logs) are saved." impact="Enables you to review and compare performance later." />
+              </div>
               <Input 
                 value={outputDir} 
                 onChange={(e) => setOutputDir(e.target.value)}

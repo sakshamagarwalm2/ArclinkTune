@@ -1,5 +1,6 @@
 import { useSystemStats } from '@/hooks/useSystemStats'
 import { cn } from '@/lib/utils'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 
 function MiniRing({ value, color, size = 20 }: { value: number; color: string; size?: number }) {
   const circumference = 2 * Math.PI * 7
@@ -40,9 +41,10 @@ export function StatusBar() {
     <footer className="h-8 border-t border-border/50 dark:border-primary/5 bg-card/50 dark:bg-card/30 backdrop-blur-xl flex items-center justify-between px-4 text-xs">
       <div className="flex items-center gap-4">
         {/* Status */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-nowrap">
           <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
           <span className="text-neon-green font-medium">Online</span>
+          <InfoTooltip content="Your session is active and connected." impact="Allows you to run training, chat, and monitoring in real-time." />
         </div>
 
         <div className="h-3 w-px bg-border/50" />
@@ -51,6 +53,7 @@ export function StatusBar() {
         <div className="flex items-center gap-1.5">
           <MiniRing value={cpuVal} color="hsl(173, 80%, 48%)" />
           <span className="text-muted-foreground">CPU</span>
+          <InfoTooltip content="Central Processing Unit usage." impact="Higher usage indicates heavy data processing or CPU-based inference." />
           <span className={cn(
             "font-medium tabular-nums",
             cpuVal > 80 ? "text-destructive" : "text-primary"
@@ -63,6 +66,7 @@ export function StatusBar() {
         <div className="flex items-center gap-1.5">
           <MiniRing value={ramVal} color="hsl(265, 60%, 55%)" />
           <span className="text-muted-foreground">RAM</span>
+          <InfoTooltip content="System Random Access Memory usage." impact="Ensure sufficient RAM is available for loading large datasets." />
           <span className={cn(
             "font-medium tabular-nums",
             ramVal > 80 ? "text-destructive" : "text-neon-violet"
@@ -75,6 +79,7 @@ export function StatusBar() {
         <div className="flex items-center gap-1.5">
           <MiniRing value={hasGpu ? gpuVal : 0} color="hsl(142, 71%, 45%)" />
           <span className="text-muted-foreground">GPU</span>
+          <InfoTooltip content="Graphics Processing Unit usage." impact="Primary resource for efficient LLM training and fast inference." />
           <span className="font-medium tabular-nums text-neon-green">
             {hasGpu ? `${gpuVal.toFixed(0)}%` : 'N/A'}
           </span>
@@ -82,8 +87,9 @@ export function StatusBar() {
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-muted-foreground">
+        <span className="text-muted-foreground flex items-center">
           Backend: <span className="text-neon-green font-medium">Connected</span>
+          <InfoTooltip content="Status of the connection to the LlamaFactory engine." impact="Required for all core functionalities including training and chat." />
         </span>
         <span className="text-muted-foreground/40 tabular-nums">v1.0.0</span>
       </div>

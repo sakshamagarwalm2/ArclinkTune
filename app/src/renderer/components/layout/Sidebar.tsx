@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 import logoUrl from '../../../assets/Logo.png'
 
@@ -58,47 +59,56 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-1">
+      <TooltipProvider delayDuration={100}>
+        <nav className="flex-1 py-4 px-3 space-y-1">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group',
-                isActive
-                  ? 'bg-gradient-to-r from-primary/90 to-primary/70 text-primary-foreground shadow-neon'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/40 dark:hover:bg-accent/20'
-              )}
-            >
-              <item.icon className={cn(
-                'w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110',
-                isActive ? 'text-primary-foreground' : ''
-              )} />
-              {!collapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className={cn(
-                    'font-medium text-sm',
-                    isActive ? 'text-primary-foreground' : ''
-                  )}>
-                    {item.label}
-                  </span>
-                  {isActive && (
-                    <span className="text-[10px] text-primary-foreground/70 truncate">
-                      {item.description}
-                    </span>
+            <Tooltip key={item.path}>
+              <TooltipTrigger asChild>
+                <NavLink
+                  to={item.path}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group',
+                    isActive
+                      ? 'bg-gradient-to-r from-primary/90 to-primary/70 text-primary-foreground shadow-neon'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/40 dark:hover:bg-accent/20'
                   )}
-                </div>
-              )}
-              {isActive && (
-                <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary-foreground/80" />
-              )}
-            </NavLink>
+                >
+                  <item.icon className={cn(
+                    'w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110',
+                    isActive ? 'text-primary-foreground' : ''
+                  )} />
+                  {!collapsed && (
+                    <div className="flex flex-col min-w-0">
+                      <span className={cn(
+                        'font-medium text-sm',
+                        isActive ? 'text-primary-foreground' : ''
+                      )}>
+                        {item.label}
+                      </span>
+                      {isActive && (
+                        <span className="text-[10px] text-primary-foreground/70 truncate">
+                          {item.description}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {isActive && (
+                    <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary-foreground/80" />
+                  )}
+                </NavLink>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-card/95 border-primary/20 p-2">
+                <p className="font-semibold text-neon-cyan text-[11px] mb-0.5">{item.label}</p>
+                <p className="text-muted-foreground text-[10px]">{item.description}</p>
+              </TooltipContent>
+            </Tooltip>
           )
         })}
       </nav>
+
+      </TooltipProvider>
 
       {/* Collapse Toggle */}
       <div className="p-3 border-t border-border/50 dark:border-primary/5">

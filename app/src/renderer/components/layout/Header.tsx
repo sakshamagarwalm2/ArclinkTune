@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { Sun, Moon, Sparkles } from 'lucide-react'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Switch } from '@/components/ui/switch'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -37,13 +38,15 @@ export function Header() {
             onCheckedChange={toggleTheme}
           />
           <Moon className="w-4 h-4 text-neon-violet" />
+          <InfoTooltip content="Toggles between Light and Dark visual themes." impact="Instantly updates the interface look while preserving your settings." />
         </div>
 
         <div className="h-5 w-px bg-border/50 mx-1" />
 
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/10">
+        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/10 group cursor-help">
           <Sparkles className="w-3 h-3 text-primary" />
           <span className="text-xs font-medium text-muted-foreground">Powered by LlamaFactory</span>
+          <InfoTooltip content="ArclinkTune is built on the powerful LlamaFactory fine-tuning framework." impact="Ensures compatibility with hundreds of state-of-the-art models." />
         </div>
       </div>
     </header>

@@ -16,6 +16,7 @@ import {
   Play, Square, Save, FolderOpen, Eye, Settings, 
   Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight
 } from 'lucide-react'
+import { InfoTooltip } from '@/components/ui/info-tooltip'
 
 const TRAINING_STAGES = [
   { value: 'sft', label: 'SFT (Supervised Fine-tuning)' },
@@ -270,7 +271,10 @@ export function TrainPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Training Stage</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Training Stage</label>
+                      <InfoTooltip content="The phase of training (SFT, Reward Modeling, PPO, etc.)." impact="Determines the objective function and data format used for the run." />
+                    </div>
                     <Select value={config.stage} onValueChange={(v) => updateConfig('stage', v)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -284,7 +288,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Dataset Directory</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Dataset Directory</label>
+                      <InfoTooltip content="Path to the folder containing your dataset files." impact="Necessary for the system to locate the training data." />
+                    </div>
                     <Input 
                       value={config.dataset_dir} 
                       onChange={(e) => updateConfig('dataset_dir', e.target.value)}
@@ -293,7 +300,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Dataset</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Dataset</label>
+                      <InfoTooltip content="Specific dataset(s) to use for training." impact="Defines the knowledge and task-specific skills the model will acquire." />
+                    </div>
                     <Input 
                       value={config.dataset} 
                       onChange={(e) => updateConfig('dataset', e.target.value)}
@@ -303,7 +313,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Max Samples</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Max Samples</label>
+                      <InfoTooltip content="Maximum number of examples to use from the dataset." impact="Fewer samples speed up training but may reduce quality." />
+                    </div>
                     <Input 
                       type="number"
                       value={config.max_samples} 
@@ -321,7 +334,10 @@ export function TrainPage() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Model Path</label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">Model Path</label>
+                        <InfoTooltip content="Path or ID of the base model to fine-tune." impact="Crucial for loading the correct weights and tokenizer." />
+                      </div>
                       <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
                         <Bot className="w-3 h-3" /> Browse Models <ArrowRight className="w-3 h-3" />
                       </Link>
@@ -334,7 +350,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Template</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Template</label>
+                      <InfoTooltip content="Conversation template for the model (e.g., Llama 3, Qwen)." impact="Ensures inputs are formatted correctly for the specific model architecture." />
+                    </div>
                     <Select value={config.template} onValueChange={(v) => updateConfig('template', v)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -354,7 +373,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Fine-tuning Type</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Fine-tuning Type</label>
+                      <InfoTooltip content="Common methods like LoRA, Full Parameter, or Freeze." impact="LoRA is the most memory-efficient; Full is the most thorough but VRAM-intensive." />
+                    </div>
                     <Select value={config.finetuning_type} onValueChange={(v) => updateConfig('finetuning_type', v)}>
                       <SelectTrigger>
                         <SelectValue />
@@ -368,7 +390,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Output Directory</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Output Directory</label>
+                      <InfoTooltip content="Where your model checkpoints and final weights are saved." impact="Ensure this folder is on a drive with enough free space (GBs)." />
+                    </div>
                     <Input 
                       value={config.output_dir} 
                       onChange={(e) => updateConfig('output_dir', e.target.value)}
@@ -389,7 +414,10 @@ export function TrainPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Quantization Bit</label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">Quantization Bit</label>
+                        <InfoTooltip content="Precision level of the model weights (4-bit, 8-bit)." impact="Lower bits save VRAM at the cost of slight accuracy degradation." />
+                      </div>
                       <Select value={config.quantization_bit} onValueChange={(v) => updateConfig('quantization_bit', v)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -403,7 +431,10 @@ export function TrainPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Quantization Method</label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">Quantization Method</label>
+                        <InfoTooltip content="Technique for model compression (e.g., 4-bit, 8-bit)." impact="Reduces VRAM usage significantly with minimal quality loss." />
+                      </div>
                       <Select value={config.quantization_method} onValueChange={(v) => updateConfig('quantization_method', v)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -419,7 +450,10 @@ export function TrainPage() {
 
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Booster</label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">Booster</label>
+                        <InfoTooltip content="Acceleration backend like FlashAttention or Unsloth." impact="Speeds up training and reduces memory overhead on supported GPUs." />
+                      </div>
                       <Select value={config.booster} onValueChange={(v) => updateConfig('booster', v)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -433,7 +467,10 @@ export function TrainPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">RoPE Scaling</label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">RoPE Scaling</label>
+                        <InfoTooltip content="Technique to expand the model's effective context window." impact="Enables processing of much longer text sequences during training." />
+                      </div>
                       <Select value={config.rope_scaling} onValueChange={(v) => updateConfig('rope_scaling', v)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -448,8 +485,15 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-4">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-medium">Dataset Selection</h3>
+                      <InfoTooltip content="Choose the JSON/JSONL files for training." impact="The quality and relevance of this data is the most important factor in model performance." />
+                    </div>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <label className="text-sm font-medium">Resize Vocabulary</label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">Resize Vocabulary</label>
+                        <InfoTooltip content="Aligns model embeddings with a potentially new/expanded tokenizer." impact="Necessary if you've added new special tokens or a custom vocabulary." />
+                      </div>
                       <Switch
                         checked={config.resize_vocab}
                         onCheckedChange={(checked) => updateConfig('resize_vocab', checked)}
@@ -470,7 +514,10 @@ export function TrainPage() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Learning Rate: <span className="text-primary tabular-nums">{config.learning_rate.toExponential()}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Learning Rate: <span className="text-primary tabular-nums">{config.learning_rate.toExponential()}</span></label>
+                      <InfoTooltip content="Determines how fast the model weights are adjusted." impact="Too high causes instability; too low makes training extremely slow." />
+                    </div>
                     <Slider 
                       value={[Math.log10(config.learning_rate)]} 
                       min={-6} max={-2} step={0.1}
@@ -483,7 +530,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Epochs: <span className="text-primary tabular-nums">{config.num_train_epochs}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Epochs: <span className="text-primary tabular-nums">{config.num_train_epochs}</span></label>
+                      <InfoTooltip content="Number of complete passes through the training data." impact="More epochs improve learning but increase the risk of overfitting." />
+                    </div>
                     <Slider 
                       value={[config.num_train_epochs]} 
                       min={0.1} max={20} step={0.1}
@@ -492,7 +542,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Cutoff Length: <span className="text-primary tabular-nums">{config.cutoff_len}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Cutoff Length: <span className="text-primary tabular-nums">{config.cutoff_len}</span></label>
+                      <InfoTooltip content="Maximum token limit for each training sequence." impact="Directly impacts VRAM usage; higher values allow for longer context." />
+                    </div>
                     <Slider 
                       value={[config.cutoff_len]} 
                       min={4} max={131072} step={4}
@@ -501,7 +554,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Batch Size: <span className="text-primary tabular-nums">{config.per_device_train_batch_size}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Batch Size: <span className="text-primary tabular-nums">{config.per_device_train_batch_size}</span></label>
+                      <InfoTooltip content="Number of samples processed in one training step." impact="Larger batches stabilize training but require more GPU memory." />
+                    </div>
                     <Slider 
                       value={[config.per_device_train_batch_size]} 
                       min={1} max={64} step={1}
@@ -510,7 +566,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Gradient Accumulation: <span className="text-primary tabular-nums">{config.gradient_accumulation_steps}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Gradient Accumulation: <span className="text-primary tabular-nums">{config.gradient_accumulation_steps}</span></label>
+                      <InfoTooltip content="Number of steps to accumulate gradients before updating weights." impact="Simulates a larger batch size without increasing VRAM consumption." />
+                    </div>
                     <Slider 
                       value={[config.gradient_accumulation_steps]} 
                       min={1} max={128} step={1}
@@ -519,7 +578,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Max Grad Norm: <span className="text-primary tabular-nums">{config.max_grad_norm}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Max Grad Norm: <span className="text-primary tabular-nums">{config.max_grad_norm}</span></label>
+                      <InfoTooltip content="Clips gradients to this value if they exceed the limit." impact="Prevents 'Exploding Gradients' and stabilizes training on long sequences." />
+                    </div>
                     <Slider 
                       value={[config.max_grad_norm]} 
                       min={0.1} max={10} step={0.1}
@@ -528,7 +590,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Warmup Steps: <span className="text-primary tabular-nums">{config.warmup_steps}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Warmup Steps: <span className="text-primary tabular-nums">{config.warmup_steps}</span></label>
+                      <InfoTooltip content="Number of initial steps where LR gradually increases." impact="Helps the model stabilize before hitting the peak learning rate." />
+                    </div>
                     <Slider 
                       value={[config.warmup_steps]} 
                       min={0} max={5000} step={10}
@@ -537,7 +602,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Validation Size: <span className="text-primary tabular-nums">{config.val_size.toFixed(2)}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Validation Size: <span className="text-primary tabular-nums">{config.val_size.toFixed(2)}</span></label>
+                      <InfoTooltip content="Portion of the data reserved for validation." impact="Helpful for monitoring overfitting; common values are 0.05 to 0.1." />
+                    </div>
                     <Slider 
                       value={[config.val_size * 100]} 
                       min={0} max={50} step={1}
@@ -547,7 +615,10 @@ export function TrainPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">LR Scheduler</label>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">LR Scheduler</label>
+                    <InfoTooltip content="Strategy for adjusting the learning rate during training." impact="'Cosine' is generally recommended for smooth, efficient convergence." />
+                  </div>
                   <Select value={config.lr_scheduler_type} onValueChange={(v) => updateConfig('lr_scheduler_type', v)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -590,7 +661,10 @@ export function TrainPage() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA Rank: <span className="text-primary tabular-nums">{config.lora_rank}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">LoRA Rank: <span className="text-primary tabular-nums">{config.lora_rank}</span></label>
+                      <InfoTooltip content="Determines the dimension (capacity) of the LoRA matrices." impact="Higher rank allows more complex learning but increases VRAM usage." />
+                    </div>
                     <Slider 
                       value={[config.lora_rank]} 
                       min={1} max={256} step={1}
@@ -599,7 +673,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA Alpha: <span className="text-primary tabular-nums">{config.lora_alpha}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">LoRA Alpha: <span className="text-primary tabular-nums">{config.lora_alpha}</span></label>
+                      <InfoTooltip content="Scaling factor applied to the learned LoRA weights." impact="Works with Rank to control the magnitude of model adjustments." />
+                    </div>
                     <Slider 
                       value={[config.lora_alpha]} 
                       min={1} max={512} step={1}
@@ -608,7 +685,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA Dropout: <span className="text-primary tabular-nums">{config.lora_dropout.toFixed(2)}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">LoRA Dropout: <span className="text-primary tabular-nums">{config.lora_dropout.toFixed(2)}</span></label>
+                      <InfoTooltip content="Probability of randomly disabling neurons during tuning." impact="Acts as a regularizer to prevent 'memorization' or overfitting." />
+                    </div>
                     <Slider 
                       value={[config.lora_dropout * 100]} 
                       min={0} max={50} step={1}
@@ -617,7 +697,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA+ LR Ratio: <span className="text-primary tabular-nums">{config.loraplus_lr_ratio}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">LoRA+ LR Ratio: <span className="text-primary tabular-nums">{config.loraplus_lr_ratio}</span></label>
+                      <InfoTooltip content="Learning rate ratio for the B matrix in LoRA+." impact="Optimizes the learning process by using different LRs for different LoRA matrices." />
+                    </div>
                     <Slider 
                       value={[config.loraplus_lr_ratio]} 
                       min={0} max={64} step={1}
@@ -627,7 +710,10 @@ export function TrainPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">LoRA Target Modules</label>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">LoRA Target Modules</label>
+                    <InfoTooltip content="Specific model layers (e.g. q_proj, v_proj) to be adapted." impact="Specifying 'all' is usually safest for general fine-tuning." />
+                  </div>
                   <Input 
                     value={config.lora_target} 
                     onChange={(e) => updateConfig('lora_target', e.target.value)}
@@ -646,13 +732,16 @@ export function TrainPage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { key: 'use_rslora', label: 'RSLoRA' },
-                    { key: 'use_dora', label: 'DoRA' },
-                    { key: 'use_pissa', label: 'PiSSA' },
-                    { key: 'create_new_adapter', label: 'New Adapter' },
+                    { key: 'use_rslora', label: 'RSLoRA', tip: 'Rank-Stabilized LoRA for better stability.' },
+                    { key: 'use_dora', label: 'DoRA', tip: 'Weight-Decomposed LoRA for better quality.' },
+                    { key: 'use_pissa', label: 'PiSSA', tip: 'Principal Singular values adaptation.' },
+                    { key: 'create_new_adapter', label: 'New Adapter', tip: 'Start with a fresh initialization.' },
                   ].map(item => (
                     <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <span className="text-sm">{item.label}</span>
+                      <div className="flex items-center">
+                        <span className="text-sm">{item.label}</span>
+                        <InfoTooltip content={item.tip} impact="Fine-tunes the mathematical approach for LoRA weight updates." />
+                      </div>
                       <Switch
                         checked={config[item.key as keyof TrainingConfig] as boolean}
                         onCheckedChange={(checked) => updateConfig(item.key as keyof TrainingConfig, checked)}
@@ -693,7 +782,10 @@ export function TrainPage() {
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Preference Beta: <span className="text-primary tabular-nums">{config.pref_beta}</span></label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">Preference Beta: <span className="text-primary tabular-nums">{config.pref_beta}</span></label>
+                        <InfoTooltip content="Weight of the KL divergence penalty (common: 0.1)." impact="Prevents the model from diverging too far from the base behavior during RLHF." />
+                      </div>
                       <Slider 
                         value={[config.pref_beta * 100]} 
                         min={0} max={100} step={1}
@@ -701,7 +793,10 @@ export function TrainPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Preference Loss</label>
+                      <div className="flex items-center">
+                        <label className="text-sm font-medium">Preference Loss</label>
+                        <InfoTooltip content="Loss function for alignment (Sigmoid, IPO, KTO)." impact="Determines how the model learns from preferred vs rejected samples." />
+                      </div>
                       <Select value={config.pref_loss} onValueChange={(v) => updateConfig('pref_loss', v)}>
                         <SelectTrigger>
                           <SelectValue />
@@ -746,7 +841,10 @@ export function TrainPage() {
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <span className="text-sm font-medium">Enable GaLorE</span>
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium">Enable GaLorE</span>
+                        <InfoTooltip content="Gradient Low-Rank Projection optimization." impact="Enables full-parameter training on consumer GPUs with high VRAM efficiency." />
+                      </div>
                       <Switch
                         checked={config.use_galore}
                         onCheckedChange={(checked) => updateConfig('use_galore', checked)}
@@ -789,7 +887,10 @@ export function TrainPage() {
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <span className="text-sm font-medium">Enable Apollo</span>
+                      <div className="flex items-center">
+                        <span className="text-sm font-medium">Enable Apollo</span>
+                        <InfoTooltip content="Advanced projection optimization for extreme efficiency." impact="Further reduces training memory footprint compared to standard Adam/LoRA." />
+                      </div>
                       <Switch
                         checked={config.use_apollo}
                         onCheckedChange={(checked) => updateConfig('use_apollo', checked)}
