@@ -1,10 +1,32 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Github, Mail, ExternalLink, Sparkles, Code2 } from 'lucide-react'
 import bannerImg from '../../assets/baner.png'
 
+interface VersionInfo {
+  version: string;
+  buildDate: string;
+  gitCommit: string;
+}
+
 export function AboutPage() {
+  const [versionInfo, setVersionInfo] = useState<VersionInfo>({
+    version: '1.0.0',
+    buildDate: '',
+    gitCommit: ''
+  });
+
+  useEffect(() => {
+    fetch('/version.json')
+      .then(res => res.json())
+      .then(data => setVersionInfo(data))
+      .catch(() => {
+        setVersionInfo({ version: '1.0.0', buildDate: '', gitCommit: '' });
+      });
+  }, []);
+
   return (
     <div className="h-full flex flex-col gap-8 pb-12 animate-in fade-in duration-500">
       {/* Banner Section */}
@@ -16,7 +38,7 @@ export function AboutPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent flex flex-col justify-end p-8">
           <Badge className="w-fit mb-3 bg-primary/20 text-primary border-primary/30 backdrop-blur-md">
-            v1.0.0
+            v{versionInfo.version}
           </Badge>
           <h1 className="text-4xl md:text-5xl font-black tracking-tighter brand-gradient-text drop-shadow-neon">
             ArclinkTune

@@ -1,0 +1,11 @@
+{
+  "name": "arclinktune",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Desktop LLM Fine-tuning Application",
+  "scripts": {
+    "version:patch": "node scripts/version.js patch",
+    "version:minor": "node scripts/version.js minor",
+    "version:major": "node scripts/version.js major"
+  }
+}

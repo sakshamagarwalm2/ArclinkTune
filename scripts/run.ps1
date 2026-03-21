@@ -2,7 +2,7 @@ Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "   ArclinkTune System Launcher (PS)" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
-$ROOT = Get-Location
+$ROOT = (Get-Item $PSScriptRoot).Parent.FullName
 
 # 1. Check for Backend Venv
 if (-not (Test-Path "$ROOT\environment\venv")) {

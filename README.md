@@ -4,8 +4,7 @@
 
 # ArclinkTune
 
-A modern desktop application for fine-tuning and managing custom language models. Built with Electron + React frontend and FastAPI backend, leveraging LlamaFactory for training.
-
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 ![Python](https://img.shields.io/badge/python-3.11+-green.svg)
@@ -77,16 +76,16 @@ ArclinkTune/
 
 ## 🚀 One-Click Execution (Recommended)
 
-To set up everything and start both the backend and frontend with a single command, simply run the launcher from the project root:
+To set up everything and start both the backend and frontend with a single command, run:
 
 ```powershell
 # Windows (PowerShell)
-.\run.ps1
+.\scripts\run.ps1
 ```
 
 ```batch
 # Windows (Command Prompt)
-run.bat
+.\scripts\run.bat
 ```
 
 This script will:
@@ -363,6 +362,37 @@ python scripts/check_hardware.py
 ## License
 
 MIT License - see LICENSE file for details
+
+## Version Management
+
+The app version is managed centrally in `VERSION.json` and automatically synced to the app.
+
+### Current Version
+
+Check the current version:
+```bash
+cat VERSION.json
+```
+
+### Bump Version
+
+```bash
+# Patch bump (1.0.0 → 1.0.1)
+npm run version:patch
+
+# Minor bump (1.0.0 → 1.1.0)
+npm run version:minor
+
+# Major bump (1.0.0 → 2.0.0)
+npm run version:major
+```
+
+This will:
+- Update `VERSION.json` with new version + build date + git commit
+- Copy to `app/public/version.json` for the app to read
+- Show in the About page dynamically
+
+---
 
 ## Acknowledgments
 
