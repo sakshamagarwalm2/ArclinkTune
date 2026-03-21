@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, shell, nativeTheme } from 'electron';
+import { app, BrowserWindow, Menu, shell, nativeTheme } from 'electron';
 import path from 'path';
 import { setupIpcHandlers } from './ipc';
 import { createAppMenu } from './menu';
@@ -44,7 +44,7 @@ async function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
-  const menu = createAppMenu(mainWindow);
+  const menu = createAppMenu();
   Menu.setApplicationMenu(menu);
 
   setupIpcHandlers(mainWindow);

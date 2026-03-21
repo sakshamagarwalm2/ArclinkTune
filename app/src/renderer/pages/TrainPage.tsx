@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,11 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { api } from '@/hooks/useApi'
 import { useTraining } from '@/hooks/useTraining'
 import { 
   Play, Square, Save, FolderOpen, Eye, Settings, 
-  Layers, Cpu, Zap, Brain, Rocket, Activity
+  Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight
 } from 'lucide-react'
 
 const TRAINING_STAGES = [
@@ -39,7 +41,7 @@ const COMPUTE_TYPES = [
 ]
 
 const LR_SCHEDULERS = [
-  'linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'inverse_sqrt', 'reduce_lr_on_plateau', '摇臂式', 'c Expo'
+  'linear', 'cosine', 'cosine_with_restarts', 'polynomial', 'constant', 'constant_with_warmup', 'inverse_sqrt', 'reduce_lr_on_plateau'
 ]
 
 const PREF_LOSSES = [
@@ -232,26 +234,30 @@ export function TrainPage() {
 
   return (
     <div className="h-full flex flex-col gap-6">
+      {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Training Configuration</h2>
-          <p className="text-sm text-muted-foreground">Configure and run fine-tuning</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Rocket className="w-6 h-6 text-primary" />
+            Training Configuration
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Configure and run model fine-tuning</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={isRunning ? 'warning' : 'secondary'}>
-            {isRunning ? 'Training' : 'Ready'}
+          <Badge variant={isRunning ? 'default' : 'secondary'} className={isRunning ? 'bg-neon-amber text-white animate-pulse' : ''}>
+            {isRunning ? '● Training' : 'Ready'}
           </Badge>
         </div>
       </div>
 
       <Tabs defaultValue="basic" className="flex-1">
         <TabsList className="grid grid-cols-6 w-fit">
-          <TabsTrigger value="basic" className="gap-1"><Settings className="w-4 h-4" /> Basic</TabsTrigger>
-          <TabsTrigger value="model" className="gap-1"><Cpu className="w-4 h-4" /> Model</TabsTrigger>
-          <TabsTrigger value="hyperparams" className="gap-1"><Brain className="w-4 h-4" /> Hyperparams</TabsTrigger>
-          <TabsTrigger value="lora" className="gap-1"><Layers className="w-4 h-4" /> LoRA</TabsTrigger>
-          <TabsTrigger value="advanced" className="gap-1"><Zap className="w-4 h-4" /> Advanced</TabsTrigger>
-          <TabsTrigger value="output" className="gap-1"><Activity className="w-4 h-4" /> Output</TabsTrigger>
+          <TabsTrigger value="basic" className="gap-1.5"><Settings className="w-3.5 h-3.5" /> Basic</TabsTrigger>
+          <TabsTrigger value="model" className="gap-1.5"><Cpu className="w-3.5 h-3.5" /> Model</TabsTrigger>
+          <TabsTrigger value="hyperparams" className="gap-1.5"><Brain className="w-3.5 h-3.5" /> Hyperparams</TabsTrigger>
+          <TabsTrigger value="lora" className="gap-1.5"><Layers className="w-3.5 h-3.5" /> LoRA</TabsTrigger>
+          <TabsTrigger value="advanced" className="gap-1.5"><Zap className="w-3.5 h-3.5" /> Advanced</TabsTrigger>
+          <TabsTrigger value="output" className="gap-1.5"><Activity className="w-3.5 h-3.5" /> Output</TabsTrigger>
         </TabsList>
 
         <div className="mt-4 overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
@@ -314,7 +320,12 @@ export function TrainPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Model Path</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">Model Path</label>
+                      <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
+                        <Bot className="w-3 h-3" /> Browse Models <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
                     <Input 
                       value={config.model_name_or_path} 
                       onChange={(e) => updateConfig('model_name_or_path', e.target.value)}
@@ -437,13 +448,11 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                       <label className="text-sm font-medium">Resize Vocabulary</label>
-                      <input 
-                        type="checkbox"
+                      <Switch
                         checked={config.resize_vocab}
-                        onChange={(e) => updateConfig('resize_vocab', e.target.checked)}
-                        className="w-5 h-5"
+                        onCheckedChange={(checked) => updateConfig('resize_vocab', checked)}
                       />
                     </div>
                   </div>
@@ -461,7 +470,7 @@ export function TrainPage() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Learning Rate: {config.learning_rate.toExponential()}</label>
+                    <label className="text-sm font-medium">Learning Rate: <span className="text-primary tabular-nums">{config.learning_rate.toExponential()}</span></label>
                     <Slider 
                       value={[Math.log10(config.learning_rate)]} 
                       min={-6} max={-2} step={0.1}
@@ -474,7 +483,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Epochs: {config.num_train_epochs}</label>
+                    <label className="text-sm font-medium">Epochs: <span className="text-primary tabular-nums">{config.num_train_epochs}</span></label>
                     <Slider 
                       value={[config.num_train_epochs]} 
                       min={0.1} max={20} step={0.1}
@@ -483,7 +492,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Cutoff Length: {config.cutoff_len}</label>
+                    <label className="text-sm font-medium">Cutoff Length: <span className="text-primary tabular-nums">{config.cutoff_len}</span></label>
                     <Slider 
                       value={[config.cutoff_len]} 
                       min={4} max={131072} step={4}
@@ -492,7 +501,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Batch Size: {config.per_device_train_batch_size}</label>
+                    <label className="text-sm font-medium">Batch Size: <span className="text-primary tabular-nums">{config.per_device_train_batch_size}</span></label>
                     <Slider 
                       value={[config.per_device_train_batch_size]} 
                       min={1} max={64} step={1}
@@ -501,7 +510,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Gradient Accumulation: {config.gradient_accumulation_steps}</label>
+                    <label className="text-sm font-medium">Gradient Accumulation: <span className="text-primary tabular-nums">{config.gradient_accumulation_steps}</span></label>
                     <Slider 
                       value={[config.gradient_accumulation_steps]} 
                       min={1} max={128} step={1}
@@ -510,7 +519,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Max Grad Norm: {config.max_grad_norm}</label>
+                    <label className="text-sm font-medium">Max Grad Norm: <span className="text-primary tabular-nums">{config.max_grad_norm}</span></label>
                     <Slider 
                       value={[config.max_grad_norm]} 
                       min={0.1} max={10} step={0.1}
@@ -519,7 +528,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Warmup Steps: {config.warmup_steps}</label>
+                    <label className="text-sm font-medium">Warmup Steps: <span className="text-primary tabular-nums">{config.warmup_steps}</span></label>
                     <Slider 
                       value={[config.warmup_steps]} 
                       min={0} max={5000} step={10}
@@ -528,7 +537,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Validation Size: {config.val_size.toFixed(2)}</label>
+                    <label className="text-sm font-medium">Validation Size: <span className="text-primary tabular-nums">{config.val_size.toFixed(2)}</span></label>
                     <Slider 
                       value={[config.val_size * 100]} 
                       min={0} max={50} step={1}
@@ -581,7 +590,7 @@ export function TrainPage() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA Rank: {config.lora_rank}</label>
+                    <label className="text-sm font-medium">LoRA Rank: <span className="text-primary tabular-nums">{config.lora_rank}</span></label>
                     <Slider 
                       value={[config.lora_rank]} 
                       min={1} max={256} step={1}
@@ -590,7 +599,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA Alpha: {config.lora_alpha}</label>
+                    <label className="text-sm font-medium">LoRA Alpha: <span className="text-primary tabular-nums">{config.lora_alpha}</span></label>
                     <Slider 
                       value={[config.lora_alpha]} 
                       min={1} max={512} step={1}
@@ -599,7 +608,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA Dropout: {config.lora_dropout.toFixed(2)}</label>
+                    <label className="text-sm font-medium">LoRA Dropout: <span className="text-primary tabular-nums">{config.lora_dropout.toFixed(2)}</span></label>
                     <Slider 
                       value={[config.lora_dropout * 100]} 
                       min={0} max={50} step={1}
@@ -608,7 +617,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">LoRA+ LR Ratio: {config.loraplus_lr_ratio}</label>
+                    <label className="text-sm font-medium">LoRA+ LR Ratio: <span className="text-primary tabular-nums">{config.loraplus_lr_ratio}</span></label>
                     <Slider 
                       value={[config.loraplus_lr_ratio]} 
                       min={0} max={64} step={1}
@@ -635,43 +644,21 @@ export function TrainPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.use_rslora}
-                      onChange={(e) => updateConfig('use_rslora', e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">RSLoRA</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.use_dora}
-                      onChange={(e) => updateConfig('use_dora', e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">DoRA</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.use_pissa}
-                      onChange={(e) => updateConfig('use_pissa', e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">PiSSA</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.create_new_adapter}
-                      onChange={(e) => updateConfig('create_new_adapter', e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">New Adapter</span>
-                  </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { key: 'use_rslora', label: 'RSLoRA' },
+                    { key: 'use_dora', label: 'DoRA' },
+                    { key: 'use_pissa', label: 'PiSSA' },
+                    { key: 'create_new_adapter', label: 'New Adapter' },
+                  ].map(item => (
+                    <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                      <span className="text-sm">{item.label}</span>
+                      <Switch
+                        checked={config[item.key as keyof TrainingConfig] as boolean}
+                        onCheckedChange={(checked) => updateConfig(item.key as keyof TrainingConfig, checked)}
+                      />
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -682,7 +669,7 @@ export function TrainPage() {
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Freeze Trainable Layers: {config.freeze_trainable_layers}</label>
+                      <label className="text-sm font-medium">Freeze Trainable Layers: <span className="text-primary tabular-nums">{config.freeze_trainable_layers}</span></label>
                       <Slider 
                         value={[config.freeze_trainable_layers]} 
                         min={-128} max={128} step={1}
@@ -706,7 +693,7 @@ export function TrainPage() {
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Preference Beta: {config.pref_beta}</label>
+                      <label className="text-sm font-medium">Preference Beta: <span className="text-primary tabular-nums">{config.pref_beta}</span></label>
                       <Slider 
                         value={[config.pref_beta * 100]} 
                         min={0} max={100} step={1}
@@ -727,32 +714,28 @@ export function TrainPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium">Preference FTX: {config.pref_ftx}</label>
+                      <label className="text-sm font-medium">Preference FTX: <span className="text-primary tabular-nums">{config.pref_ftx}</span></label>
                       <Slider 
                         value={[config.pref_ftx]} 
                         min={0} max={10} step={0.1}
                         onValueChange={([v]) => updateConfig('pref_ftx', v)}
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="checkbox"
-                          checked={config.ppo_score_norm}
-                          onChange={(e) => updateConfig('ppo_score_norm', e.target.checked)}
-                          className="w-4 h-4"
-                        />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                         <span className="text-sm">PPO Score Norm</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="checkbox"
-                          checked={config.ppo_whiten_rewards}
-                          onChange={(e) => updateConfig('ppo_whiten_rewards', e.target.checked)}
-                          className="w-4 h-4"
+                        <Switch
+                          checked={config.ppo_score_norm}
+                          onCheckedChange={(checked) => updateConfig('ppo_score_norm', checked)}
                         />
+                      </div>
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                         <span className="text-sm">PPO Whiten Rewards</span>
-                      </label>
+                        <Switch
+                          checked={config.ppo_whiten_rewards}
+                          onCheckedChange={(checked) => updateConfig('ppo_whiten_rewards', checked)}
+                        />
+                      </div>
                     </div>
                   </div>
                 </AccordionContent>
@@ -762,19 +745,17 @@ export function TrainPage() {
                 <AccordionTrigger>GaLorE Settings</AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="checkbox"
-                        checked={config.use_galore}
-                        onChange={(e) => updateConfig('use_galore', e.target.checked)}
-                        className="w-4 h-4"
-                      />
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                       <span className="text-sm font-medium">Enable GaLorE</span>
-                    </label>
+                      <Switch
+                        checked={config.use_galore}
+                        onCheckedChange={(checked) => updateConfig('use_galore', checked)}
+                      />
+                    </div>
                     {config.use_galore && (
                       <>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">GaLorE Rank: {config.galore_rank}</label>
+                          <label className="text-sm font-medium">GaLorE Rank: <span className="text-primary tabular-nums">{config.galore_rank}</span></label>
                           <Slider 
                             value={[config.galore_rank]} 
                             min={1} max={256} step={1}
@@ -782,7 +763,7 @@ export function TrainPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Update Interval: {config.galore_update_interval}</label>
+                          <label className="text-sm font-medium">Update Interval: <span className="text-primary tabular-nums">{config.galore_update_interval}</span></label>
                           <Slider 
                             value={[config.galore_update_interval]} 
                             min={1} max={1000} step={10}
@@ -790,7 +771,7 @@ export function TrainPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Scale: {config.galore_scale}</label>
+                          <label className="text-sm font-medium">Scale: <span className="text-primary tabular-nums">{config.galore_scale}</span></label>
                           <Slider 
                             value={[config.galore_scale]} 
                             min={0} max={100} step={0.1}
@@ -807,19 +788,17 @@ export function TrainPage() {
                 <AccordionTrigger>Apollo Settings</AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="checkbox"
-                        checked={config.use_apollo}
-                        onChange={(e) => updateConfig('use_apollo', e.target.checked)}
-                        className="w-4 h-4"
-                      />
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                       <span className="text-sm font-medium">Enable Apollo</span>
-                    </label>
+                      <Switch
+                        checked={config.use_apollo}
+                        onCheckedChange={(checked) => updateConfig('use_apollo', checked)}
+                      />
+                    </div>
                     {config.use_apollo && (
                       <>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Apollo Rank: {config.apollo_rank}</label>
+                          <label className="text-sm font-medium">Apollo Rank: <span className="text-primary tabular-nums">{config.apollo_rank}</span></label>
                           <Slider 
                             value={[config.apollo_rank]} 
                             min={1} max={256} step={1}
@@ -827,7 +806,7 @@ export function TrainPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Scale: {config.apollo_scale}</label>
+                          <label className="text-sm font-medium">Scale: <span className="text-primary tabular-nums">{config.apollo_scale}</span></label>
                           <Slider 
                             value={[config.apollo_scale]} 
                             min={0} max={100} step={0.1}
@@ -844,15 +823,13 @@ export function TrainPage() {
                 <AccordionTrigger>BAdam Settings</AccordionTrigger>
                 <AccordionContent>
                   <div className="space-y-4 pt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="checkbox"
-                        checked={config.use_badam}
-                        onChange={(e) => updateConfig('use_badam', e.target.checked)}
-                        className="w-4 h-4"
-                      />
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                       <span className="text-sm font-medium">Enable BAdam</span>
-                    </label>
+                      <Switch
+                        checked={config.use_badam}
+                        onCheckedChange={(checked) => updateConfig('use_badam', checked)}
+                      />
+                    </div>
                     {config.use_badam && (
                       <>
                         <div className="space-y-2">
@@ -882,7 +859,7 @@ export function TrainPage() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Switch Interval: {config.badam_switch_interval}</label>
+                          <label className="text-sm font-medium">Switch Interval: <span className="text-primary tabular-nums">{config.badam_switch_interval}</span></label>
                           <Slider 
                             value={[config.badam_switch_interval]} 
                             min={1} max={500} step={1}
@@ -890,7 +867,7 @@ export function TrainPage() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Update Ratio: {config.badam_update_ratio.toFixed(2)}</label>
+                          <label className="text-sm font-medium">Update Ratio: <span className="text-primary tabular-nums">{config.badam_update_ratio.toFixed(2)}</span></label>
                           <Slider 
                             value={[config.badam_update_ratio * 100]} 
                             min={0} max={50} step={1}
@@ -913,7 +890,7 @@ export function TrainPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">NEFTune Alpha: {config.neftune_alpha}</label>
+                  <label className="text-sm font-medium">NEFTune Alpha: <span className="text-primary tabular-nums">{config.neftune_alpha}</span></label>
                   <Slider 
                     value={[config.neftune_alpha]} 
                     min={0} max={10} step={0.1}
@@ -921,34 +898,20 @@ export function TrainPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.packing}
-                      onChange={(e) => updateConfig('packing', e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">Sequence Packing</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.train_on_prompt}
-                      onChange={(e) => updateConfig('train_on_prompt', e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">Train on Prompt</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.mask_history}
-                      onChange={(e) => updateConfig('mask_history', e.target.checked)}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm">Mask History</span>
-                  </label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { key: 'packing', label: 'Sequence Packing' },
+                    { key: 'train_on_prompt', label: 'Train on Prompt' },
+                    { key: 'mask_history', label: 'Mask History' },
+                  ].map(item => (
+                    <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                      <span className="text-sm">{item.label}</span>
+                      <Switch
+                        checked={config[item.key as keyof TrainingConfig] as boolean}
+                        onCheckedChange={(checked) => updateConfig(item.key as keyof TrainingConfig, checked)}
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 <div className="space-y-2">
@@ -991,15 +954,13 @@ export function TrainPage() {
                 </div>
 
                 {config.ds_stage !== 'none' && (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                      type="checkbox"
-                      checked={config.ds_offload}
-                      onChange={(e) => updateConfig('ds_offload', e.target.checked)}
-                      className="w-4 h-4"
-                    />
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                     <span className="text-sm">DeepSpeed Offload</span>
-                  </label>
+                    <Switch
+                      checked={config.ds_offload}
+                      onCheckedChange={(checked) => updateConfig('ds_offload', checked)}
+                    />
+                  </div>
                 )}
 
                 <div className="space-y-2">
@@ -1023,7 +984,7 @@ export function TrainPage() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Logging Steps: {config.logging_steps}</label>
+                    <label className="text-sm font-medium">Logging Steps: <span className="text-primary tabular-nums">{config.logging_steps}</span></label>
                     <Slider 
                       value={[config.logging_steps]} 
                       min={1} max={100} step={1}
@@ -1032,7 +993,7 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Save Steps: {config.save_steps}</label>
+                    <label className="text-sm font-medium">Save Steps: <span className="text-primary tabular-nums">{config.save_steps}</span></label>
                     <Slider 
                       value={[config.save_steps]} 
                       min={10} max={1000} step={10}
@@ -1040,17 +1001,27 @@ export function TrainPage() {
                     />
                   </div>
                 </div>
+
+                {/* Interlink */}
+                <div className="flex gap-2 pt-2">
+                  <Link to="/evaluate" className="flex-1">
+                    <Button variant="outline" className="w-full gap-2">
+                      <LineChart className="w-4 h-4" /> Evaluate after Training <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
         </div>
       </Tabs>
 
+      {/* Actions Card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Rocket className="w-4 h-4" /> Actions
+              <Rocket className="w-4 h-4 text-primary" /> Actions
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={handlePreview}>
@@ -1076,21 +1047,21 @@ export function TrainPage() {
         </CardHeader>
         <CardContent>
           {previewCommand && (
-            <div className="mb-4 p-3 bg-muted rounded-lg">
-              <p className="text-xs font-medium mb-1">Command Preview:</p>
-              <code className="text-xs break-all">{previewCommand}</code>
+            <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border/50">
+              <p className="text-xs font-medium mb-1 text-muted-foreground">Command Preview:</p>
+              <code className="text-xs break-all font-mono">{previewCommand}</code>
             </div>
           )}
           {isRunning && (
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
                 <span>Training Progress</span>
-                <span>{status?.progress || 0}%</span>
+                <span className="text-primary font-medium tabular-nums">{progress || 0}%</span>
               </div>
-              <Progress value={status?.progress || 0} className="h-2" />
+              <Progress value={progress || 0} className="h-2" variant="cyan" />
             </div>
           )}
-          <div className="h-40 overflow-auto p-3 bg-muted/50 rounded-lg font-mono text-xs">
+          <div className="h-40 overflow-auto p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Training logs will appear here...</p>
             ) : (

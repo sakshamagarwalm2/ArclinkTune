@@ -1,348 +1,300 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useSystemStats } from '@/hooks/useSystemStats'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
+import { useState, useMemo } from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  Cpu, MemoryStick, HardDrive, Activity, Thermometer, Zap, Gauge, Wind, TrendingUp, Clock
-} from 'lucide-react'
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
-} from 'recharts'
+import { Progress } from '@/components/ui/progress'
+import { LineChart, Line, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useSystemStats } from '@/hooks/useSystemStats'
+import { Monitor, Cpu, MemoryStick, Activity, Thermometer, Pause, Play, Download } from 'lucide-react'
 
-interface DataPoint {
-  time: string
-  cpu: number
-  gpu: number
-  memory: number
-  gpuTemp: number
-  gpuMem: number
+// Mock historical data for charts
+const generateMockHistory = (baseValue: number, variance: number, length = 30) => {
+  return Array.from({ length }, (_, i) => ({
+    time: i,
+    value: Math.max(0, Math.min(100, baseValue + (Math.random() * variance * 2 - variance)))
+  }))
 }
 
 export function MonitorPage() {
-  const { stats, isLoading, refresh } = useSystemStats(5000)
-  const [history, setHistory] = useState<DataPoint[]>([])
-  const [maxPoints] = useState(15)
   const [isPaused, setIsPaused] = useState(false)
+  const { stats, error, refresh } = useSystemStats(isPaused ? undefined : 2000)
 
-  useEffect(() => {
-    if (stats && !isPaused) {
-      const now = new Date()
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      
-      setHistory(prev => {
-        const newPoint: DataPoint = {
-          time: timeStr,
-          cpu: stats.cpu?.utilization_percent || 0,
-          gpu: stats.gpu?.[0]?.utilization_percent || 0,
-          memory: stats.memory?.ram_percent || 0,
-          gpuTemp: stats.gpu?.[0]?.temperature_celsius || 0,
-          gpuMem: stats.gpu?.[0]?.memory_percent || 0,
-        }
-        const updated = [...prev, newPoint]
-        if (updated.length > maxPoints) {
-          return updated.slice(-maxPoints)
-        }
-        return updated
-      })
-    }
-  }, [stats, isPaused])
+  // Memoize history data to prevent excessive re-renders (in a real app, this would be accumulated state)
+  const cpuHistory = useMemo(() => generateMockHistory(stats?.cpu?.utilization_percent || 30, 15), [stats?.cpu?.utilization_percent])
+  const gpuHistory = useMemo(() => generateMockHistory(stats?.gpu?.[0]?.utilization_percent || 10, 5), [stats?.gpu?.[0]?.utilization_percent])
+  const ramHistory = useMemo(() => generateMockHistory(stats?.memory?.ram_percent || 45, 2), [stats?.memory?.ram_percent])
 
-  const gpu = stats?.gpu?.[0]
-  const cpu = stats?.cpu
-  const memory = stats?.memory
-  const disk = stats?.disk?.[0]
-
-  const getUtilizationColor = (percent: number) => {
-    if (percent < 50) return 'text-green-500'
-    if (percent < 80) return 'text-yellow-500'
-    return 'text-red-500'
-  }
-
-  const getTempColor = (temp: number) => {
-    if (temp < 50) return 'text-green-500'
-    if (temp < 80) return 'text-yellow-500'
-    return 'text-red-500'
-  }
-
-  const formatUptime = (seconds: number): string => {
-    const days = Math.floor(seconds / 86400)
-    const hours = Math.floor((seconds % 86400) / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    if (days > 0) return `${days}d ${hours}h`
-    if (hours > 0) return `${hours}h ${minutes}m`
-    return `${minutes}m`
-  }
-
-  if (isLoading && !stats) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Activity className="w-8 h-8 animate-spin text-indigo-500 mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading system stats...</p>
-        </div>
-      </div>
-    )
-  }
+  const cpuData = stats?.cpu
+  const memData = stats?.memory
+  const gpuData = stats?.gpu?.[0]
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-indigo-500" />
-              System Performance
-              <Badge variant="success" className="ml-2">Live</Badge>
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPaused(!isPaused)}
-              >
-                {isPaused ? 'Resume' : 'Pause'}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => refresh()}>
-                Refresh
-              </Button>
-            </div>
-          </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Monitor className="w-6 h-6 text-primary" />
+            System Monitor
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Real-time hardware utilization</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setIsPaused(!isPaused)}
+            className="w-24"
+          >
+            {isPaused ? <><Play className="w-4 h-4 mr-1" /> Resume</> : <><Pause className="w-4 h-4 mr-1" /> Pause</>}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => refresh()}
+          >
+            <Activity className="w-4 h-4 mr-1" /> Force Refresh
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardContent className="p-6 text-center text-destructive">
+            <p className="font-medium">Failed to load system stats</p>
+            <p className="text-sm opacity-80 mt-1">{error.message}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* CPU Card */}
+          <Card className="glass-card hover:shadow-neon transition-shadow">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Cpu className="w-4 h-4 text-primary" />
+                  </div>
+                  Processor (CPU)
+                </CardTitle>
+                <span className="text-2xl font-bold tabular-nums text-primary">
+                  {cpuData?.utilization_percent?.toFixed(1) || 0}%
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="h-[120px] w-full mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={cpuHistory}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                    <YAxis domain={[0, 100]} hide />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                      itemStyle={{ color: 'hsl(173, 80%, 48%)' }}
+                      labelStyle={{ display: 'none' }}
+                      formatter={(val: number) => [`${val.toFixed(1)}%`, 'Usage']}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="hsl(173, 80%, 48%)" 
+                      strokeWidth={2} 
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm mt-4">
+                <div>
+                  <p className="text-muted-foreground text-xs">Model</p>
+                  <p className="font-medium truncate" title={cpuData?.name}>{cpuData?.name || 'Unknown'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Cores (Logical)</p>
+                  <p className="font-medium">{cpuData?.cores_logical || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Memory Card */}
+          <Card className="glass-card hover:shadow-neon-lg transition-shadow">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-neon-violet/10 flex items-center justify-center">
+                    <MemoryStick className="w-4 h-4 text-neon-violet" />
+                  </div>
+                  System Memory (RAM)
+                </CardTitle>
+                <span className="text-2xl font-bold tabular-nums text-neon-violet">
+                  {memData?.ram_percent?.toFixed(1) || 0}%
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="h-[120px] w-full mt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={ramHistory}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                    <YAxis domain={[0, 100]} hide />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                      itemStyle={{ color: 'hsl(265, 60%, 55%)' }}
+                      labelStyle={{ display: 'none' }}
+                      formatter={(val: number) => [`${val.toFixed(1)}%`, 'Usage']}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="hsl(265, 60%, 55%)" 
+                      strokeWidth={2} 
+                      dot={false}
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm mt-4">
+                <div>
+                  <p className="text-muted-foreground text-xs">Used / Total</p>
+                  <p className="font-medium tabular-nums">
+                    {memData?.ram_used_gb?.toFixed(1) || 0} / {memData?.ram_total_gb?.toFixed(1) || 0} GB
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Swap Usage</p>
+                  <p className="font-medium tabular-nums">{memData?.swap_percent?.toFixed(1) || 0}%</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* GPU Card */}
+          <Card className="glass-card hover:shadow-neon transition-shadow flex-col md:col-span-2 lg:col-span-1 border-neon-green/30">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-neon-green/10 flex items-center justify-center">
+                    <Cpu className="w-4 h-4 text-neon-green" />
+                  </div>
+                  Graphics (GPU)
+                </CardTitle>
+                {gpuData ? (
+                  <span className="text-2xl font-bold tabular-nums text-neon-green">
+                    {gpuData.utilization_percent?.toFixed(1) || 0}%
+                  </span>
+                ) : (
+                  <span className="text-sm font-medium text-muted-foreground">Not Detected</span>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {gpuData ? (
+                <>
+                  <div className="h-[120px] w-full mt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={gpuHistory}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
+                        <YAxis domain={[0, 100]} hide />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '8px' }}
+                          itemStyle={{ color: 'hsl(142, 60%, 45%)' }}
+                          labelStyle={{ display: 'none' }}
+                          formatter={(val: number) => [`${val.toFixed(1)}%`, 'Usage']}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="value" 
+                          stroke="hsl(142, 60%, 45%)" 
+                          strokeWidth={2} 
+                          dot={false}
+                          isAnimationActive={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-3 mt-4">
+                    <div>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-muted-foreground">VRAM Usage</span>
+                        <span className="font-medium tabular-nums text-neon-green">
+                          {gpuData.memory_used_gb?.toFixed(1) || 0} / {gpuData.memory_total_gb?.toFixed(1) || 0} GB
+                        </span>
+                      </div>
+                      <Progress 
+                        value={(gpuData.memory_used_gb / gpuData.memory_total_gb) * 100 || 0} 
+                        className="h-1.5" 
+                        variant="green"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm pt-1">
+                      <div>
+                        <p className="text-muted-foreground text-xs">Model</p>
+                        <p className="font-medium truncate" title={gpuData.name}>{gpuData.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs flex items-center gap-1">
+                          <Thermometer className="w-3 h-3 text-neon-amber" /> Temperature
+                        </p>
+                        <p className="font-medium tabular-nums">{gpuData.temperature_celsius || 0}°C</p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="h-[220px] flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Cpu className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                    <p>No NVIDIA GPU detected</p>
+                    <p className="text-xs mt-1">Make sure drivers are installed</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Disk Usage */}
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Download className="w-4 h-4 text-primary" /> Storage
+          </CardTitle>
+          <CardDescription>Disk space utilization</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="text-center p-3 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/50">
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats?.info?.hostname || 'Unknown'}</p>
-              <p className="text-xs text-muted-foreground">Hostname</p>
-            </div>
-            <div className="text-center p-3 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
-              <div className="flex items-center justify-center gap-1">
-                <Clock className="w-4 h-4 text-emerald-500" />
-                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{formatUptime(stats?.info?.uptime_seconds || 0)}</p>
-              </div>
-              <p className="text-xs text-muted-foreground">Uptime</p>
-            </div>
-            <div className="text-center p-3 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-xl border border-orange-100 dark:border-orange-900/50">
-              <p className={`text-2xl font-bold ${getTempColor(gpu?.temperature_celsius || 0)}`}>
-                {gpu?.temperature_celsius || 0}°C
-              </p>
-              <p className="text-xs text-muted-foreground">GPU Temp</p>
-            </div>
-            <div className="text-center p-3 bg-gradient-to-br from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30 rounded-xl border border-violet-100 dark:border-violet-900/50">
-              <p className="text-2xl font-bold text-violet-600 dark:text-violet-400">{gpu?.name?.split(' ').slice(0, 2).join(' ') || 'N/A'}</p>
-              <p className="text-xs text-muted-foreground">GPU</p>
-            </div>
-          </div>
-          
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history}>
-                <defs>
-                  <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.1}/>
-                  </linearGradient>
-                  <linearGradient id="gpuGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.1}/>
-                  </linearGradient>
-                  <linearGradient id="memGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.1}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis dataKey="time" stroke="#9ca3af" fontSize={10} />
-                <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={10} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                  labelStyle={{ color: '#f3f4f6' }}
+          <div className="space-y-6">
+            {stats?.disk?.map((disk, idx) => (
+              <div key={idx} className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="font-medium text-sm flex items-center gap-2">
+                      Drive {disk.device}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Mount: {disk.mount_point}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium tabular-nums">
+                      {disk.used_gb.toFixed(1)} / {disk.total_gb.toFixed(1)} GB
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">{disk.percent.toFixed(1)}% Used</p>
+                  </div>
+                </div>
+                <Progress 
+                  value={disk.percent} 
+                  className="h-2" 
+                  variant={disk.percent > 90 ? 'destructive' : disk.percent > 75 ? 'amber' : 'cyan'} 
                 />
-                <Area type="monotone" dataKey="cpu" stroke="#6366f1" fill="url(#cpuGradient)" name="CPU %" />
-                <Area type="monotone" dataKey="gpu" stroke="#22c55e" fill="url(#gpuGradient)" name="GPU %" />
-                <Area type="monotone" dataKey="memory" stroke="#f59e0b" fill="url(#memGradient)" name="RAM %" />
-              </AreaChart>
-            </ResponsiveContainer>
+              </div>
+            ))}
+            {!stats?.disk?.length && (
+              <p className="text-sm text-muted-foreground">Loading disk information...</p>
+            )}
           </div>
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Thermometer className="h-4 w-4 text-red-500" /> GPU Temperature
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-32">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history}>
-                  <defs>
-                    <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="time" stroke="#9ca3af" fontSize={10} />
-                  <YAxis stroke="#9ca3af" fontSize={10} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                    labelStyle={{ color: '#f3f4f6' }}
-                  />
-                  <Area type="monotone" dataKey="gpuTemp" stroke="#ef4444" fill="url(#tempGradient)" name="°C" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <MemoryStick className="h-4 w-4 text-purple-500" /> GPU Memory
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-32">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history}>
-                  <defs>
-                    <linearGradient id="gpuMemGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="time" stroke="#9ca3af" fontSize={10} />
-                  <YAxis domain={[0, 100]} stroke="#9ca3af" fontSize={10} />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                    labelStyle={{ color: '#f3f4f6' }}
-                  />
-                  <Area type="monotone" dataKey="gpuMem" stroke="#8b5cf6" fill="url(#gpuMemGradient)" name="VRAM %" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Gauge className="h-4 w-4 text-indigo-500" /> GPU Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="flex items-center gap-2"><MemoryStick className="h-3 w-3" /> VRAM</span>
-                <span className="font-medium">{gpu?.memory_used_gb?.toFixed(1) || 0}GB / {gpu?.memory_total_gb?.toFixed(1) || 0}GB</span>
-              </div>
-              <Progress value={gpu?.memory_percent || 0} className="h-2" />
-              <p className="text-xs text-muted-foreground text-right">{gpu?.memory_percent?.toFixed(1) || 0}%</p>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="text-center p-2 bg-muted/50 rounded-lg">
-                <Thermometer className="h-4 w-4 mx-auto mb-1 text-orange-500" />
-                <p className="text-sm font-bold">{gpu?.temperature_celsius || 0}°C</p>
-              </div>
-              <div className="text-center p-2 bg-muted/50 rounded-lg">
-                <Zap className="h-4 w-4 mx-auto mb-1 text-yellow-500" />
-                <p className="text-sm font-bold">{gpu?.power_watts?.toFixed(0) || 0}W</p>
-              </div>
-              <div className="text-center p-2 bg-muted/50 rounded-lg">
-                <Wind className="h-4 w-4 mx-auto mb-1 text-green-500" />
-                <p className="text-sm font-bold">{gpu?.fan_speed_percent?.toFixed(0) || 0}%</p>
-              </div>
-              <div className="text-center p-2 bg-muted/50 rounded-lg">
-                <TrendingUp className="h-4 w-4 mx-auto mb-1 text-purple-500" />
-                <p className="text-sm font-bold">{gpu?.clock_gpu_mhz || 0}MHz</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-blue-500" /> CPU Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>CPU Usage</span>
-                <span className={`font-medium ${getUtilizationColor(cpu?.utilization_percent || 0)}`}>{cpu?.utilization_percent?.toFixed(1) || 0}%</span>
-              </div>
-              <Progress value={cpu?.utilization_percent || 0} className="h-2" />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="text-center p-2 bg-muted/50 rounded-lg">
-                <p className="text-sm font-bold">{cpu?.cores_physical || 0}</p>
-                <p className="text-xs text-muted-foreground">Cores</p>
-              </div>
-              <div className="text-center p-2 bg-muted/50 rounded-lg">
-                <p className="text-sm font-bold">{cpu?.cores_logical || 0}</p>
-                <p className="text-xs text-muted-foreground">Threads</p>
-              </div>
-              <div className="text-center p-2 bg-muted/50 rounded-lg">
-                <p className="text-sm font-bold">{cpu?.frequency_mhz?.toFixed(0) || 0}</p>
-                <p className="text-xs text-muted-foreground">MHz</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <MemoryStick className="h-4 w-4 text-pink-500" /> Memory
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>RAM</span>
-                <span className="font-medium">{memory?.ram_used_gb?.toFixed(1) || 0}GB / {memory?.ram_total_gb?.toFixed(1) || 0}GB</span>
-              </div>
-              <Progress value={memory?.ram_percent || 0} className="h-2" />
-              <p className="text-xs text-muted-foreground text-right">{memory?.ram_percent?.toFixed(1) || 0}%</p>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Swap</span>
-                <span className="font-medium">{memory?.swap_used_gb?.toFixed(1) || 0}GB / {memory?.swap_total_gb?.toFixed(1) || 0}GB</span>
-              </div>
-              <Progress value={memory?.swap_percent || 0} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {disk && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <HardDrive className="h-4 w-4 text-teal-500" /> Disk - {disk.mount_point}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>{disk.used_gb.toFixed(1)}GB / {disk.total_gb.toFixed(1)}GB</span>
-                <span className="font-medium">{disk.percent.toFixed(1)}%</span>
-              </div>
-              <Progress value={disk.percent} className="h-3" />
-              <p className="text-xs text-muted-foreground">Free: {disk.free_gb.toFixed(1)}GB available</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

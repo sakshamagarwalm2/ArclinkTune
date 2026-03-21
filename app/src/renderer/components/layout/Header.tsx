@@ -1,45 +1,52 @@
 import { useLocation } from 'react-router-dom'
-import { RefreshCw, Sparkles } from 'lucide-react'
+import { Sun, Moon, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useSystemStats } from '@/hooks/useSystemStats'
+import { useTheme } from '@/hooks/useTheme'
 
-const pageTitles: Record<string, { title: string; subtitle: string; icon: string }> = {
-  '/models': { title: 'Model Selection', subtitle: 'Browse and download LLMs', icon: 'bot' },
-  '/train': { title: 'Training', subtitle: 'Configure and run fine-tuning', icon: 'graduation' },
-  '/chat': { title: 'Chat', subtitle: 'Test your models', icon: 'chat' },
-  '/evaluate': { title: 'Evaluate', subtitle: 'Benchmark performance', icon: 'chart' },
-  '/export': { title: 'Export', subtitle: 'Save trained models', icon: 'download' },
-  '/monitor': { title: 'System Monitor', subtitle: 'Real-time hardware stats', icon: 'monitor' },
+const pageTitles: Record<string, { title: string; subtitle: string }> = {
+  '/models': { title: 'Models', subtitle: 'Browse and download LLMs' },
+  '/train': { title: 'Training', subtitle: 'Configure and run fine-tuning' },
+  '/evaluate': { title: 'Evaluate', subtitle: 'Benchmark model performance' },
+  '/chat': { title: 'Chat', subtitle: 'Test your models interactively' },
+  '/export': { title: 'Export', subtitle: 'Save and deploy trained models' },
+  '/monitor': { title: 'System Monitor', subtitle: 'Real-time hardware stats' },
 }
 
 export function Header() {
   const location = useLocation()
-  const { refresh } = useSystemStats(5000)
+  const { theme, toggleTheme } = useTheme()
 
-  const page = pageTitles[location.pathname] || { title: 'ArclinkTune', subtitle: 'LLM Fine-tuning Studio', icon: 'sparkles' }
+  const page = pageTitles[location.pathname] || { title: 'ArclinkTune', subtitle: 'LLM Fine-tuning Studio' }
 
   return (
-    <header className="h-16 border-b border-border/50 bg-gradient-to-r from-card via-card/80 to-card flex items-center justify-between px-6">
+    <header className="h-14 border-b border-border/50 dark:border-primary/5 bg-card/50 dark:bg-card/30 backdrop-blur-xl flex items-center justify-between px-6">
       <div className="flex items-center gap-3">
-        <div className="hidden md:block">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">
+        <div>
+          <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-neon-violet bg-clip-text text-transparent">
             {page.title}
           </h1>
           <p className="text-xs text-muted-foreground -mt-0.5">{page.subtitle}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => refresh()} 
-          className="h-9 w-9 p-0 hover:bg-accent/50"
+        {/* Theme Toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleTheme}
+          className="h-9 w-9 p-0 hover:bg-accent/50 rounded-xl"
         >
-          <RefreshCw className="w-4 h-4" />
+          {theme === 'dark' ? (
+            <Sun className="w-4 h-4 text-neon-amber transition-transform hover:rotate-45" />
+          ) : (
+            <Moon className="w-4 h-4 text-neon-violet transition-transform hover:-rotate-12" />
+          )}
         </Button>
-        <div className="h-6 w-px bg-border/50 mx-1" />
-        <div className="ml-2 hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20">
-          <Sparkles className="w-3 h-3 text-indigo-500" />
+
+        <div className="h-5 w-px bg-border/50 mx-1" />
+
+        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/10">
+          <Sparkles className="w-3 h-3 text-primary" />
           <span className="text-xs font-medium text-muted-foreground">Powered by LlamaFactory</span>
         </div>
       </div>

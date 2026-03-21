@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Download, FolderOpen, Eye } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Download, Bot, ArrowRight } from 'lucide-react'
 
 const QUANT_BITS = ['none', '8', '4', '3', '2']
 const EXPORT_DEVICES = [
@@ -55,13 +57,17 @@ export function ExportPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Export Model</h2>
-          <p className="text-sm text-muted-foreground">Export trained models for deployment</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Download className="w-6 h-6 text-primary" />
+            Export Model
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Export trained models for deployment</p>
         </div>
-        <Badge variant={isExporting ? 'warning' : 'secondary'}>
-          {isExporting ? 'Exporting' : 'Ready'}
+        <Badge variant={isExporting ? 'default' : 'secondary'} className={isExporting ? 'bg-neon-amber text-white animate-pulse' : ''}>
+          {isExporting ? '● Exporting' : 'Ready'}
         </Badge>
       </div>
 
@@ -73,7 +79,12 @@ export function ExportPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Model Path</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Model Path</label>
+                <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
+                  <Bot className="w-3 h-3" /> Browse <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
               <Input 
                 value={modelPath} 
                 onChange={(e) => setModelPath(e.target.value)}
@@ -123,7 +134,7 @@ export function ExportPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Shard Size: {exportSize}GB</label>
+              <label className="text-sm font-medium">Shard Size: <span className="text-primary tabular-nums">{exportSize}GB</span></label>
               <Slider 
                 value={[exportSize]} 
                 min={1} max={20} step={1}
@@ -146,15 +157,13 @@ export function ExportPage() {
               </Select>
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox"
-                checked={exportLegacyFormat}
-                onChange={(e) => setExportLegacyFormat(e.target.checked)}
-                className="w-4 h-4"
-              />
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
               <span className="text-sm">Use Legacy Format (.bin)</span>
-            </label>
+              <Switch
+                checked={exportLegacyFormat}
+                onCheckedChange={setExportLegacyFormat}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -208,15 +217,13 @@ export function ExportPage() {
               <p className="text-xs text-muted-foreground">Leave empty to only export locally</p>
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox"
-                checked={hubPrivateRepo}
-                onChange={(e) => setHubPrivateRepo(e.target.checked)}
-                className="w-4 h-4"
-              />
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
               <span className="text-sm">Make Repository Private</span>
-            </label>
+              <Switch
+                checked={hubPrivateRepo}
+                onCheckedChange={setHubPrivateRepo}
+              />
+            </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Extra Arguments (JSON)</label>
@@ -230,25 +237,26 @@ export function ExportPage() {
         </Card>
       </div>
 
+      {/* Export Actions */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Download className="w-4 h-4" /> Export Actions
+            <Download className="w-4 h-4 text-primary" /> Export Actions
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="p-3 bg-muted rounded-lg">
-            <p className="text-xs font-medium mb-1">Command Preview:</p>
-            <code className="text-xs break-all text-muted-foreground">{commandPreview}</code>
+          <div className="p-3 bg-muted/30 rounded-lg border border-border/50">
+            <p className="text-xs font-medium mb-1 text-muted-foreground">Command Preview:</p>
+            <code className="text-xs break-all font-mono">{commandPreview}</code>
           </div>
 
           {isExporting && (
-            <div className="mb-4">
+            <div>
               <div className="flex justify-between text-sm mb-1">
                 <span>Export Progress</span>
-                <span>{progress.toFixed(1)}%</span>
+                <span className="text-primary font-medium tabular-nums">{progress.toFixed(1)}%</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-2" variant="cyan" />
             </div>
           )}
 
@@ -262,7 +270,7 @@ export function ExportPage() {
             </Button>
           </div>
 
-          <div className="h-32 overflow-auto p-3 bg-muted/50 rounded-lg font-mono text-xs">
+          <div className="h-32 overflow-auto p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Export logs will appear here...</p>
             ) : (

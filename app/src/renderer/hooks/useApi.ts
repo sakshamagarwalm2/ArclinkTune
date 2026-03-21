@@ -159,7 +159,7 @@ export const api = {
     loadConfig: (path: string) => fetchApi<TrainingConfig>('/training/load', { method: 'POST', body: JSON.stringify({ path }) }),
   },
   chat: {
-    load: (config: { model_path: string; finetuning_type?: string }) => fetchApi('/chat/load', { method: 'POST', body: JSON.stringify(config) }),
+    load: (config: Record<string, any>) => fetchApi('/chat/load', { method: 'POST', body: JSON.stringify(config) }),
     unload: () => fetchApi('/chat/unload', { method: 'POST' }),
     chat: (body: { messages: { role: string; content: string }[]; max_tokens?: number; temperature?: number; top_p?: number }) => fetchApi('/chat/chat', { method: 'POST', body: JSON.stringify(body) }),
     getStatus: () => fetchApi('/chat/status'),

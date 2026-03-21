@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { api } from '@/hooks/useApi'
-import { Play, Square, Eye, CheckSquare } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight } from 'lucide-react'
 
 export function EvaluatePage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -61,13 +62,17 @@ export function EvaluatePage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Evaluation</h2>
-          <p className="text-sm text-muted-foreground">Evaluate model performance with benchmarks</p>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <LineChart className="w-6 h-6 text-primary" />
+            Evaluation
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Evaluate model performance with benchmarks</p>
         </div>
-        <Badge variant={isRunning ? 'warning' : 'secondary'}>
-          {isRunning ? 'Running' : 'Ready'}
+        <Badge variant={isRunning ? 'default' : 'secondary'} className={isRunning ? 'bg-neon-amber text-white animate-pulse' : ''}>
+          {isRunning ? '● Running' : 'Ready'}
         </Badge>
       </div>
 
@@ -79,7 +84,12 @@ export function EvaluatePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Model Path</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Model Path</label>
+                <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
+                  <Bot className="w-3 h-3" /> Browse <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
               <Input 
                 value={modelPath} 
                 onChange={(e) => setModelPath(e.target.value)}
@@ -153,7 +163,7 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Cutoff Length: {cutoffLen}</label>
+              <label className="text-sm font-medium">Cutoff Length: <span className="text-primary tabular-nums">{cutoffLen}</span></label>
               <Slider 
                 value={[cutoffLen]} 
                 min={4} max={16384} step={4}
@@ -171,7 +181,7 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Batch Size: {batchSize}</label>
+              <label className="text-sm font-medium">Batch Size: <span className="text-primary tabular-nums">{batchSize}</span></label>
               <Slider 
                 value={[batchSize]} 
                 min={1} max={64} step={1}
@@ -179,15 +189,10 @@ export function EvaluatePage() {
               />
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox"
-                checked={predict}
-                onChange={(e) => setPredict(e.target.checked)}
-                className="w-4 h-4"
-              />
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
               <span className="text-sm">Run Predictions</span>
-            </label>
+              <Switch checked={predict} onCheckedChange={setPredict} />
+            </div>
           </CardContent>
         </Card>
 
@@ -198,7 +203,7 @@ export function EvaluatePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Max New Tokens: {maxNewTokens}</label>
+              <label className="text-sm font-medium">Max New Tokens: <span className="text-primary tabular-nums">{maxNewTokens}</span></label>
               <Slider 
                 value={[maxNewTokens]} 
                 min={8} max={4096} step={8}
@@ -207,7 +212,7 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Temperature: {temperature.toFixed(2)}</label>
+              <label className="text-sm font-medium">Temperature: <span className="text-primary tabular-nums">{temperature.toFixed(2)}</span></label>
               <Slider 
                 value={[temperature * 100]} 
                 min={1} max={150} step={1}
@@ -216,7 +221,7 @@ export function EvaluatePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Top-P: {topP.toFixed(2)}</label>
+              <label className="text-sm font-medium">Top-P: <span className="text-primary tabular-nums">{topP.toFixed(2)}</span></label>
               <Slider 
                 value={[topP * 100]} 
                 min={1} max={100} step={1}
@@ -243,7 +248,7 @@ export function EvaluatePage() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Command Preview</label>
-              <div className="p-3 bg-muted rounded-lg font-mono text-xs">
+              <div className="p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
                 {commandPreview || 'Click Preview to see command'}
               </div>
             </div>
@@ -251,14 +256,24 @@ export function EvaluatePage() {
             <Button variant="outline" className="w-full" onClick={handlePreview}>
               <Eye className="w-4 h-4 mr-2" /> Preview Command
             </Button>
+
+            {/* Interlink */}
+            <Link to="/export">
+              <Button variant="outline" className="w-full gap-2 mt-2">
+                <Download className="w-4 h-4" /> Export Results <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
 
+      {/* Actions */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Actions</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <LineChart className="w-4 h-4 text-primary" /> Actions
+            </CardTitle>
             <div className="flex items-center gap-2">
               {isRunning ? (
                 <Button variant="destructive" onClick={handleStop}>
@@ -277,12 +292,12 @@ export function EvaluatePage() {
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
                 <span>Progress</span>
-                <span>{progress.toFixed(1)}%</span>
+                <span className="text-primary font-medium tabular-nums">{progress.toFixed(1)}%</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-2" variant="green" />
             </div>
           )}
-          <div className="h-48 overflow-auto p-3 bg-muted/50 rounded-lg font-mono text-xs">
+          <div className="h-48 overflow-auto p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Evaluation logs will appear here...</p>
             ) : (

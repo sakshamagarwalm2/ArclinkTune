@@ -168,7 +168,7 @@ function setupIpcHandlers(mainWindow2) {
   electron.ipcMain.handle("window:close", () => mainWindow2 == null ? void 0 : mainWindow2.close());
   electron.ipcMain.handle("window:isMaximized", () => (mainWindow2 == null ? void 0 : mainWindow2.isMaximized()) ?? false);
 }
-function createAppMenu(mainWindow2) {
+function createAppMenu() {
   const isMac = process.platform === "darwin";
   const template = [
     ...isMac ? [

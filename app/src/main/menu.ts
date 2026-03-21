@@ -1,6 +1,6 @@
-import { Menu, BrowserWindow, app, shell } from 'electron';
+import { Menu, app, shell } from 'electron';
 
-export function createAppMenu(mainWindow: BrowserWindow): Menu {
+export function createAppMenu(): Menu {
   const isMac = process.platform === 'darwin';
 
   const template: Electron.MenuItemConstructorOptions[] = [
