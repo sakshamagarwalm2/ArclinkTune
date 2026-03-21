@@ -1,4 +1,0 @@
-src/main/index.ts(1,30): error TS6133: 'ipcMain' is declared but its value is never read.
-src/main/menu.ts(3,31): error TS6133: 'mainWindow' is declared but its value is never read.
-src/renderer/App.tsx(14,18): error TS6133: 'toggleTheme' is declared but its value is never read.
-src/renderer/pages/EvaluatePage.tsx(11,1): error TS6133: 'api' is declared but its value is never read.
