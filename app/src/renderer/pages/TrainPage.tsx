@@ -403,16 +403,54 @@ export function TrainPage() {
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-80">
                         <SelectItem value="default">Default</SelectItem>
+                        <SelectItem value="alpaca">Alpaca</SelectItem>
                         <SelectItem value="llama3">Llama 3</SelectItem>
                         <SelectItem value="llama2">Llama 2</SelectItem>
                         <SelectItem value="qwen">Qwen</SelectItem>
+                        <SelectItem value="qwen2">Qwen 2</SelectItem>
+                        <SelectItem value="qwen2.5">Qwen 2.5</SelectItem>
+                        <SelectItem value="qwen3">Qwen 3</SelectItem>
                         <SelectItem value="chatglm3">ChatGLM3</SelectItem>
+                        <SelectItem value="chatglm4">ChatGLM4</SelectItem>
+                        <SelectItem value="glm4">GLM-4</SelectItem>
+                        <SelectItem value="mistral">Mistral</SelectItem>
                         <SelectItem value="mixtral">Mixtral</SelectItem>
                         <SelectItem value="yi">Yi</SelectItem>
+                        <SelectItem value="yi2">Yi 2</SelectItem>
                         <SelectItem value="deepseek">DeepSeek</SelectItem>
+                        <SelectItem value="deepseekcoder">DeepSeek Coder</SelectItem>
+                        <SelectItem value="deepseekr1">DeepSeek R1</SelectItem>
                         <SelectItem value="yuan">Yuan</SelectItem>
+                        <SelectItem value="baichuan">Baichuan</SelectItem>
+                        <SelectItem value="baichuan2">Baichuan 2</SelectItem>
+                        <SelectItem value="intern2">InternLM 2</SelectItem>
+                        <SelectItem value="xverse">Xverse</SelectItem>
+                        <SelectItem value="falcon">Falcon</SelectItem>
+                        <SelectItem value="gemma">Gemma</SelectItem>
+                        <SelectItem value="gemma2">Gemma 2</SelectItem>
+                        <SelectItem value="phi">Phi</SelectItem>
+                        <SelectItem value="phi3">Phi-3</SelectItem>
+                        <SelectItem value="starcoder2">StarCoder 2</SelectItem>
+                        <SelectItem value="codellama">Code Llama</SelectItem>
+                        <SelectItem value="wizardcoder">WizardCoder</SelectItem>
+                        <SelectItem value="minicpm">MiniCPM</SelectItem>
+                        <SelectItem value="minicpm3">MiniCPM 3</SelectItem>
+                        <SelectItem value="cohere">Cohere</SelectItem>
+                        <SelectItem value="politics">Politics</SelectItem>
+                        <SelectItem value="airoboros">Airoboros</SelectItem>
+                        <SelectItem value="gpt4all">GPT4All</SelectItem>
+                        <SelectItem value="qwen2_vl">Qwen2 VL</SelectItem>
+                        <SelectItem value="qwen2.5_vl">Qwen2.5 VL</SelectItem>
+                        <SelectItem value="llava">LLaVA</SelectItem>
+                        <SelectItem value="llava_next">LLaVA Next</SelectItem>
+                        <SelectItem value="intern_vl">InternVL</SelectItem>
+                        <SelectItem value="intern_vl2">InternVL 2</SelectItem>
+                        <SelectItem value="deepseekr1">DeepSeek R1 (Reasoning)</SelectItem>
+                        <SelectItem value="qwq">QwQ (Reasoning)</SelectItem>
+                        <SelectItem value="thinking">Thinking</SelectItem>
+                        <SelectItem value="chatml">ChatML</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { LineChart, Line, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useSystemStats } from '@/hooks/useSystemStats'
-import { Monitor, Cpu, MemoryStick, Activity, Thermometer, Pause, Play, Download } from 'lucide-react'
+import { Monitor, Cpu, MemoryStick, Activity, Thermometer, Pause, Play, Download, Zap, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
-import type { GPUStats } from '@/hooks/useApi'
+import type { GPUStats, GPUHealthResult } from '@/hooks/useApi'
+import { api } from '@/hooks/useApi'
 
 // Mock historical data for charts
 const generateMockHistory = (baseValue: number, variance: number, length = 30) => {
@@ -16,11 +17,14 @@ const generateMockHistory = (baseValue: number, variance: number, length = 30) =
   }))
 }
 
-function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
+function GPUCard({ gpu, isPaused, healthStatus, healthResult }: { gpu: GPUStats; isPaused: boolean; healthStatus: 'idle' | 'testing' | 'success' | 'error'; healthResult: GPUHealthResult | null }) {
   const gpuHistory = useMemo(() => generateMockHistory(gpu.utilization_percent || 10, 5), [gpu.utilization_percent, isPaused])
 
   return (
-    <Card className="glass-card hover:shadow-neon transition-shadow flex-col md:col-span-2 lg:col-span-1 border-neon-green/30">
+    <Card className={`glass-card hover:shadow-neon transition-shadow flex-col md:col-span-2 lg:col-span-1 ${
+      healthStatus === 'success' ? 'border-neon-green border-2' :
+      healthStatus === 'error' ? 'border-destructive border-2' : 'border-neon-green/30'
+    }`}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
@@ -30,9 +34,22 @@ function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
             Graphics (GPU)
             <InfoTooltip content="Graphics Processing Unit utilization." impact="High usage during training or inference indicates GPU is working at capacity." />
           </CardTitle>
-          <span className="text-2xl font-bold tabular-nums text-neon-green">
-            {gpu.utilization_percent?.toFixed(1) || 0}%
-          </span>
+          <div className="flex items-center gap-2">
+            {healthStatus !== 'idle' && (
+              <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                healthStatus === 'success' ? 'bg-neon-green/20 text-neon-green' :
+                healthStatus === 'error' ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'
+              }`}>
+                {healthStatus === 'success' && <CheckCircle2 className="w-3 h-3" />}
+                {healthStatus === 'error' && <XCircle className="w-3 h-3" />}
+                {healthStatus === 'testing' && <Activity className="w-3 h-3 animate-pulse" />}
+                <span>{healthStatus === 'success' ? 'CUDA Ready' : healthStatus === 'error' ? 'Error' : 'Testing'}</span>
+              </div>
+            )}
+            <span className="text-2xl font-bold tabular-nums text-neon-green">
+              {gpu.utilization_percent?.toFixed(1) || 0}%
+            </span>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -58,6 +75,64 @@ function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
             </LineChart>
           </ResponsiveContainer>
         </div>
+        
+        {healthResult && (
+          <div className={`p-3 rounded-lg ${
+            healthResult.cuda_available ? 'bg-neon-green/10' : 'bg-destructive/10'
+          }`}>
+            <div className="flex items-center gap-2 mb-2">
+              {healthResult.cuda_available ? (
+                <CheckCircle2 className="w-4 h-4 text-neon-green" />
+              ) : (
+                <XCircle className="w-4 h-4 text-destructive" />
+              )}
+              <span className={`text-sm font-medium ${
+                healthResult.cuda_available ? 'text-neon-green' : 'text-destructive'
+              }`}>
+                {healthResult.cuda_available ? 'CUDA Available' : 'CUDA Not Available'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              {healthResult.gpu_name && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">GPU:</span>
+                  <span className="font-medium truncate max-w-[120px]" title={healthResult.gpu_name}>{healthResult.gpu_name}</span>
+                </div>
+              )}
+              {healthResult.cuda_version && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">CUDA:</span>
+                  <span className="font-medium">{healthResult.cuda_version}</span>
+                </div>
+              )}
+              {healthResult.gpu_compute_capability && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Compute:</span>
+                  <span className="font-medium">{healthResult.gpu_compute_capability}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tensor Test:</span>
+                <span className={healthResult.tensor_test_passed ? 'text-neon-green' : 'text-destructive'}>
+                  {healthResult.tensor_test_passed ? 'Passed' : 'Failed'}
+                </span>
+              </div>
+              {healthResult.details.total_memory_gb && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">VRAM:</span>
+                  <span className="font-medium">{healthResult.details.total_memory_gb.toFixed(1)} GB</span>
+                </div>
+              )}
+            </div>
+            {healthResult.error && (
+              <div className="mt-2 text-xs text-destructive flex items-start gap-1">
+                <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                <span>{healthResult.error}</span>
+              </div>
+            )}
+          </div>
+        )}
+        
         <div className="space-y-3 mt-4">
           <div>
             <div className="flex justify-between text-xs mb-1">
@@ -96,7 +171,32 @@ function GPUCard({ gpu, isPaused }: { gpu: GPUStats; isPaused: boolean }) {
 
 export function MonitorPage() {
   const [isPaused, setIsPaused] = useState(false)
+  const [gpuHealthStatus, setGpuHealthStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle')
+  const [gpuHealthResult, setGpuHealthResult] = useState<GPUHealthResult | null>(null)
   const { stats, error, refresh } = useSystemStats(isPaused ? undefined : 2000)
+
+  const testGpuHealth = async () => {
+    setGpuHealthStatus('testing')
+    setGpuHealthResult(null)
+    try {
+      const result = await api.system.getGpuHealth()
+      setGpuHealthResult(result)
+      setGpuHealthStatus(result.cuda_available && result.tensor_test_passed ? 'success' : 'error')
+    } catch (err) {
+      setGpuHealthStatus('error')
+      setGpuHealthResult({ 
+        cuda_available: false, 
+        cuda_version: null, 
+        gpu_name: null, 
+        gpu_count: 0, 
+        gpu_compute_capability: null, 
+        tensor_test_passed: false, 
+        memory_test_passed: false, 
+        error: err instanceof Error ? err.message : 'Unknown error', 
+        details: {} 
+      })
+    }
+  }
 
   // Memoize history data to prevent excessive re-renders (in a real app, this would be accumulated state)
   const cpuHistory = useMemo(() => generateMockHistory(stats?.cpu?.utilization_percent || 30, 15), [stats?.cpu?.utilization_percent])
@@ -132,6 +232,19 @@ export function MonitorPage() {
             className="flex-1 sm:w-auto text-xs md:text-sm"
           >
             <Activity className="w-4 h-4 mr-1 md:mr-2" /> Force Refresh
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={testGpuHealth}
+            disabled={gpuHealthStatus === 'testing'}
+            className={`flex-1 sm:w-auto text-xs md:text-sm ${
+              gpuHealthStatus === 'success' ? 'border-neon-green text-neon-green hover:bg-neon-green/10' :
+              gpuHealthStatus === 'error' ? 'border-destructive text-destructive hover:bg-destructive/10' : ''
+            }`}
+          >
+            <Zap className={`w-4 h-4 mr-1 md:mr-2 ${gpuHealthStatus === 'testing' ? 'animate-pulse' : ''}`} /> 
+            {gpuHealthStatus === 'testing' ? 'Testing...' : 'Test GPU'}
           </Button>
         </div>
       </div>
@@ -253,7 +366,7 @@ export function MonitorPage() {
 
           {stats?.gpu?.filter(gpu => gpu.name !== 'No GPU Detected').length ? (
             stats.gpu.filter(gpu => gpu.name !== 'No GPU Detected').map((gpu, idx) => (
-              <GPUCard key={idx} gpu={gpu} isPaused={isPaused} />
+              <GPUCard key={idx} gpu={gpu} isPaused={isPaused} healthStatus={gpuHealthStatus} healthResult={gpuHealthResult} />
             ))
           ) : (
             <Card className="glass-card flex-col md:col-span-2 lg:col-span-1 border-neon-green/30">

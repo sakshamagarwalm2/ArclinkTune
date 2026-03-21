@@ -1,6 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from pathlib import Path
 
@@ -22,31 +22,77 @@ class TrainingConfig(BaseModel):
     finetuning_type: str = "lora"
     dataset: str = ""
     dataset_dir: str = "data"
+    max_samples: Optional[int] = None
     learning_rate: float = 5e-5
     num_train_epochs: float = 3.0
     cutoff_len: int = 2048
     per_device_train_batch_size: int = 2
     gradient_accumulation_steps: int = 8
-    lr_scheduler_type: str = "cosine"
     max_grad_norm: float = 1.0
+    warmup_steps: int = 0
+    lr_scheduler_type: str = "cosine"
     logging_steps: int = 5
     save_steps: int = 100
-    warmup_steps: int = 0
+    val_size: float = 0.0
     output_dir: str = ""
     bf16: bool = True
     fp16: bool = False
     pure_bf16: bool = False
+    quantization_bit: Optional[int] = None
+    quantization_method: Optional[str] = "bnb"
+    booster: Optional[str] = "auto"
+    rope_scaling: Optional[str] = None
+    resize_vocab: bool = False
     lora_rank: int = 8
     lora_alpha: int = 16
     lora_dropout: float = 0.05
     lora_target: str = "all"
+    loraplus_lr_ratio: Optional[float] = None
+    use_rslora: bool = False
+    use_dora: bool = False
+    use_pissa: bool = False
+    create_new_adapter: bool = False
+    additional_target: Optional[str] = None
+    freeze_trainable_layers: int = 16
+    freeze_trainable_modules: str = "all"
+    pref_beta: float = 0.1
+    pref_loss: str = "sigmoid"
+    pref_ftx: float = 0.0
+    ppo_score_norm: bool = False
+    ppo_whiten_rewards: bool = False
+    use_galore: bool = False
+    galore_rank: int = 16
+    galore_update_interval: int = 64
+    galore_scale: float = 0.25
+    galore_target: str = "all"
+    use_apollo: bool = False
+    apollo_rank: int = 16
+    apollo_scale: float = 0.25
+    apollo_target: str = "all"
+    apollo_update_interval: int = 64
+    use_badam: bool = False
+    badam_mode: str = "layer"
+    badam_switch_mode: str = "lifetime"
+    badam_switch_interval: int = 100
+    badam_update_ratio: float = 0.4
+    neftune_alpha: Optional[float] = None
+    packing: bool = False
+    train_on_prompt: bool = False
+    mask_history: bool = False
+    report_to: Optional[str] = "none"
+    project_name: Optional[str] = None
+    ds_stage: Optional[str] = "none"
+    ds_offload: bool = False
     ddp: bool = False
     batch_size: int = 2
+    extra_args: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        result = self.model_dump()
+        result = self.model_dump(exclude_none=True)
         if not result.get('output_dir'):
             result['output_dir'] = f"output/train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        for key in ['batch_size', 'extra_args']:
+            result.pop(key, None)
         return result
 
 
@@ -100,8 +146,17 @@ async def list_runs():
 @router.post("/preview")
 async def preview_training(config: TrainingConfig):
     cfg = config.to_dict()
+    cmd_parts = ["llamafactory-cli train"]
+    for key, value in cfg.items():
+        if value is not None and value != "":
+            if isinstance(value, bool):
+                if value:
+                    cmd_parts.append(f"--{key}")
+            else:
+                cmd_parts.append(f"--{key} {value}")
+    
     return {
-        "command": f"llamafactory-cli train --stage {cfg['stage']} --model_name_or_path {cfg['model_name_or_path']}",
+        "command": " ".join(cmd_parts),
         "config": cfg
     }
 

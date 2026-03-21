@@ -177,3 +177,55 @@ def get_system_info():
         "hostname": platform.node(),
         "uptime_seconds": int(uptime),
     }
+
+
+def check_gpu_health():
+    result = {
+        "cuda_available": False,
+        "cuda_version": None,
+        "gpu_name": None,
+        "gpu_count": 0,
+        "gpu_compute_capability": None,
+        "tensor_test_passed": False,
+        "memory_test_passed": False,
+        "error": None,
+        "details": {}
+    }
+    
+    try:
+        import torch
+        result["cuda_available"] = torch.cuda.is_available()
+        result["cuda_version"] = torch.version.cuda if torch.cuda.is_available() else None
+        
+        if torch.cuda.is_available():
+            result["gpu_count"] = torch.cuda.device_count()
+            result["gpu_name"] = torch.cuda.get_device_name(0)
+            result["gpu_compute_capability"] = f"{torch.cuda.get_device_capability(0)[0]}.{torch.cuda.get_device_capability(0)[1]}"
+            result["details"]["total_memory_gb"] = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            result["details"]["allocated_memory_gb"] = torch.cuda.memory_allocated(0) / (1024**3)
+            result["details"]["reserved_memory_gb"] = torch.cuda.memory_reserved(0) / (1024**3)
+            
+            try:
+                x = torch.randn(1000, 1000, device='cuda')
+                y = torch.randn(1000, 1000, device='cuda')
+                z = torch.matmul(x, y)
+                result["tensor_test_passed"] = z.device.type == 'cuda'
+                del x, y, z
+                torch.cuda.empty_cache()
+            except Exception as e:
+                result["error"] = f"Tensor test failed: {str(e)}"
+            
+            try:
+                torch.cuda.init()
+                result["memory_test_passed"] = True
+                torch.cuda.empty_cache()
+            except Exception as e:
+                result["error"] = f"Memory test failed: {str(e)}"
+        else:
+            result["error"] = "CUDA is not available. Make sure PyTorch with CUDA support is installed."
+    except ImportError:
+        result["error"] = "PyTorch not installed. Install with: pip install torch"
+    except Exception as e:
+        result["error"] = str(e)
+    
+    return result

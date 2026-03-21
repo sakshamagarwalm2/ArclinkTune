@@ -48,7 +48,7 @@ class TrainingProcess:
 class TrainingService:
     def __init__(self, llamafactory_path: Path):
         self.llamafactory_path = llamafactory_path
-        self.cli_path = llamafactory_path / "llamafactory-cli.py"
+        self.src_path = llamafactory_path / "src"
         self.runs: Dict[str, TrainingProcess] = {}
         self._log_reader_thread: Optional[threading.Thread] = None
 
@@ -116,10 +116,14 @@ class TrainingService:
         
         config_path = self.create_config_file(config, output_dir)
         
-        cmd = ['python', str(self.cli_path), 'train', str(config_path)]
+        cmd = [
+            sys.executable if 'python' in dir() else 'python',
+            '-m', 'llamafactory.cli', 'train',
+            str(config_path)
+        ]
         
         env = os.environ.copy()
-        env['PYTHONPATH'] = str(self.llamafactory_path / 'src')
+        env['PYTHONPATH'] = str(self.src_path)
         
         try:
             process = subprocess.Popen(

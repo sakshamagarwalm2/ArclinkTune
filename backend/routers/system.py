@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import List, Optional
 from pydantic import BaseModel
-from services.system_monitor import get_gpu_stats, get_cpu_stats, get_memory_stats, get_disk_stats, get_network_stats, get_system_info
+from services.system_monitor import get_gpu_stats, get_cpu_stats, get_memory_stats, get_disk_stats, get_network_stats, get_system_info, check_gpu_health
 
 router = APIRouter()
 
@@ -97,3 +97,18 @@ async def get_network():
 @router.get("/info", response_model=SystemInfo)
 async def get_info():
     return get_system_info()
+
+class GPUHealthResponse(BaseModel):
+    cuda_available: bool
+    cuda_version: Optional[str]
+    gpu_name: Optional[str]
+    gpu_count: int
+    gpu_compute_capability: Optional[str]
+    tensor_test_passed: bool
+    memory_test_passed: bool
+    error: Optional[str]
+    details: dict
+
+@router.get("/gpu/health", response_model=GPUHealthResponse)
+async def get_gpu_health():
+    return check_gpu_health()

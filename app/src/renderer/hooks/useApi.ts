@@ -108,6 +108,18 @@ export interface SystemInfo {
   uptime_seconds: number
 }
 
+export interface GPUHealthResult {
+  cuda_available: boolean
+  cuda_version: string | null
+  gpu_name: string | null
+  gpu_count: number
+  gpu_compute_capability: string | null
+  tensor_test_passed: boolean
+  memory_test_passed: boolean
+  error: string | null
+  details: Record<string, number>
+}
+
 export function useApi() {
   const models = {
     getAll: () => useQuery<Model[]>({ queryKey: ['models'], queryFn: () => fetchApi('/models/') }),
@@ -172,5 +184,6 @@ export const api = {
     getDisk: () => fetchApi<DiskStats[]>('/system/disk'),
     getNetwork: () => fetchApi<NetworkStats>('/system/network'),
     getInfo: () => fetchApi<SystemInfo>('/system/info'),
+    getGpuHealth: () => fetchApi<GPUHealthResult>('/system/gpu/health'),
   },
 }

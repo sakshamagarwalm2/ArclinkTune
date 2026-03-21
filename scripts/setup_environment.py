@@ -3,6 +3,7 @@
 ArclinkTune Setup Script
 
 This script helps set up the Python environment for ArclinkTune.
+Installs: Backend deps, LlamaFactory (for training), and CUDA PyTorch (for monitoring).
 """
 
 import os
@@ -36,7 +37,9 @@ def check_cuda():
         result = subprocess.run(['nvidia-smi'], capture_output=True, text=True)
         if result.returncode == 0:
             print("[OK] NVIDIA GPU detected")
-            print(result.stdout[:500])
+            lines = result.stdout.split('\n')[:8]
+            for line in lines:
+                print(f"  {line}")
             return True
         else:
             print("[WARN] nvidia-smi not found (GPU monitoring will be limited)")
@@ -46,74 +49,134 @@ def check_cuda():
         return False
 
 def create_venv(venv_path):
-    print_step(f"Creating Virtual Environment at {venv_path}")
-    
     venv_path = Path(venv_path)
     
     if venv_path.exists():
-        print(f"Virtual environment already exists at {venv_path}")
-        response = input("Recreate it? (y/N): ").strip().lower()
-        if response == 'y':
-            import shutil
-            shutil.rmtree(venv_path)
-        else:
-            print("Using existing virtual environment")
-            return venv_path
+        print(f"[INFO] Virtual environment already exists at {venv_path}")
+        return venv_path
     
+    print(f"[INFO] Creating virtual environment at {venv_path}...")
     subprocess.run([sys.executable, '-m', 'venv', str(venv_path)], check=True)
-    print(f"[OK] Virtual environment created at {venv_path}")
+    print(f"[OK] Virtual environment created")
     return venv_path
 
-def install_dependencies(venv_path, requirements_file):
-    print_step("Installing Dependencies")
+def get_pip_exe(venv_path):
+    if platform.system() == 'Windows':
+        return venv_path / 'Scripts' / 'pip.exe'
+    return venv_path / 'bin' / 'pip'
+
+def install_backend_deps(venv_path):
+    print_step("Installing Backend Dependencies")
     
-    pip_exe = venv_path / ('Scripts/pip.exe' if platform.system() == 'Windows' else 'bin/pip')
+    pip_exe = get_pip_exe(venv_path)
+    project_root = Path(__file__).parent.parent
+    requirements_file = project_root / 'backend' / 'requirements.txt'
     
     print("Upgrading pip...")
-    subprocess.run([str(pip_exe), 'install', '--upgrade', 'pip'], check=True)
+    subprocess.run([str(pip_exe), 'install', '--upgrade', 'pip', '-q'], check=True)
     
-    print(f"\nInstalling from {requirements_file}...")
-    subprocess.run([str(pip_exe), 'install', '-r', str(requirements_file)], check=True)
+    print(f"\nInstalling from {requirements_file.name}...")
+    result = subprocess.run([str(pip_exe), 'install', '-r', str(requirements_file), '-q'], 
+                          capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"[WARN] Some dependencies may have issues: {result.stderr[:200]}")
+    print("[OK] Backend dependencies installed")
+
+def install_llamafactory(venv_path):
+    print_step("Installing LlamaFactory")
     
-    print("[OK] Dependencies installed")
+    pip_exe = get_pip_exe(venv_path)
+    project_root = Path(__file__).parent.parent
+    llamafactory_path = project_root / 'core' / 'LlamaFactory'
+    
+    print(f"\nInstalling LlamaFactory from {llamafactory_path}...")
+    print("[INFO] This enables llamafactory-cli command for training")
+    
+    result = subprocess.run([
+        str(pip_exe), 'install', '-e', str(llamafactory_path), '-q'
+    ], capture_output=True, text=True)
+    
+    if result.returncode == 0:
+        print("[OK] LlamaFactory installed successfully!")
+        print("[OK] 'llamafactory-cli' command is now available")
+    else:
+        print(f"[ERROR] Failed to install LlamaFactory: {result.stderr[:300]}")
+        return False
+    return True
+
+def install_cuda_for_monitoring():
+    print_step("Installing PyTorch with CUDA for GPU Monitoring")
+    
+    print("[INFO] This enables GPU health checks in the monitoring page.")
+    print("[INFO] This uses GLOBAL Python (not venv) for GPU monitoring.")
+    
+    try:
+        print("\nInstalling PyTorch with CUDA 11.8...")
+        result = subprocess.run([
+            sys.executable, '-m', 'pip', 'install', 
+            'torch', 'torchvision',
+            '--index-url', 'https://download.pytorch.org/whl/cu118',
+            '-q'
+        ], capture_output=True, text=True)
+        
+        check_result = subprocess.run([sys.executable, '-c', 
+            'import torch; print(f"PyTorch: {torch.__version__}"); '
+            'print(f"CUDA Available: {torch.cuda.is_available()}"); '
+            'if torch.cuda.is_available(): print(f"GPU: {torch.cuda.get_device_name(0)}")'],
+            capture_output=True, text=True)
+        
+        print(check_result.stdout)
+        
+        if 'True' in check_result.stdout:
+            print("[OK] CUDA PyTorch installed successfully!")
+        else:
+            print("[WARN] CUDA not available. Check NVIDIA drivers.")
+            
+    except Exception as e:
+        print(f"[ERROR] Failed to install CUDA PyTorch: {e}")
+        print("[INFO] Install manually with:")
+        print("  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118")
 
 def main():
     print("\n" + "="*60)
     print("  ArclinkTune Setup Script")
     print("="*60)
     
-    # Get project root
     project_root = Path(__file__).parent.parent
-    venv_path = project_root / 'environment' / 'venv'
-    requirements_file = project_root / 'backend' / 'requirements.txt'
+    venv_path = project_root / 'core' / '.venv'
     
-    # Check requirements
     if not check_python():
         sys.exit(1)
     
-    check_cuda()
+    cuda_detected = check_cuda()
     
-    # Create virtual environment
+    print_step("Setting Up Virtual Environment")
     venv_path = create_venv(venv_path)
     
-    # Install dependencies
-    if requirements_file.exists():
-        install_dependencies(venv_path, requirements_file)
-    else:
-        print(f"⚠ Requirements file not found: {requirements_file}")
+    install_backend_deps(venv_path)
+    install_llamafactory(venv_path)
     
-    # Print activation instructions
+    if cuda_detected:
+        install_cuda_for_monitoring()
+    else:
+        print("\n[WARN] No CUDA GPU detected.")
+        print("[INFO] GPU monitoring will show 'No GPU Detected'")
+        print("[INFO] Training will use CPU only (very slow)")
+    
     print_step("Setup Complete!")
     
-    if platform.system() == 'Windows':
-        activate_cmd = str(venv_path / 'Scripts' / 'activate')
-    else:
-        activate_cmd = f"source {venv_path / 'bin' / 'activate'}"
-    
-    print(f"To activate the virtual environment, run:")
-    print(f"  {activate_cmd}")
-    print(f"\nTo run the backend:")
-    print(f"  {activate_cmd.split()[0]} {activate_cmd.split()[1] if len(activate_cmd.split()) > 1 else ''} && python -m uvicorn backend.main:app --reload --port 8000")
+    print("To run the app:")
+    print("  scripts\\run.bat          (Windows)")
+    print("  scripts\\run.ps1         (PowerShell)")
+    print("")
+    print("Or manually:")
+    print("  1. Start backend:  cd backend && python main.py")
+    print("  2. Start frontend: cd app && npm run dev")
+    print("")
+    print("Architecture:")
+    print("  - GPU monitoring uses: Global Python + CUDA PyTorch")
+    print("  - Training uses:       core\\.venv + LlamaFactory")
+    print("  - Frontend uses:       Node.js + npm")
 
 if __name__ == '__main__':
     main()

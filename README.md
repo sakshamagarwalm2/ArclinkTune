@@ -26,6 +26,57 @@
 - **Monitoring**: psutil + pynvml (NVIDIA GPU monitoring)
 - **Training**: LlamaFactory integration
 
+## Architecture
+
+ArclinkTune uses a dual-environment setup:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ArclinkTune Architecture                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌─────────────────┐    ┌─────────────────┐               │
+│   │     Frontend    │    │     Backend     │               │
+│   │   (Electron)    │───▶│    (FastAPI)    │               │
+│   │  localhost:5173 │    │  localhost:8000  │               │
+│   └─────────────────┘    └────────┬────────┘               │
+│                                    │                        │
+│                                    ▼                        │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │                    Training                         │   │
+│   │  ┌─────────────────────────────────────────────┐  │   │
+│   │  │         core\.venv (Virtual Env)            │  │   │
+│   │  │  • LlamaFactory (llamafactory-cli)         │  │   │
+│   │  │  • PyTorch (CPU/CUDA)                      │  │   │
+│   │  │  • Transformers, PEFT, TRL, etc.           │  │   │
+│   │  └─────────────────────────────────────────────┘  │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │              GPU Monitoring                         │   │
+│   │  ┌─────────────────────────────────────────────┐  │   │
+│   │  │         Global Python                        │  │   │
+│   │  │  • PyTorch with CUDA                        │  │   │
+│   │  │  • pynvml (NVIDIA GPU stats)               │  │   │
+│   │  └─────────────────────────────────────────────┘  │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Environment Details:
+
+| Component | Python Environment | Purpose |
+|-----------|-------------------|---------|
+| **Training** | `core\.venv` | LlamaFactory, model training, fine-tuning |
+| **GPU Monitoring** | Global Python | PyTorch CUDA, pynvml, real-time stats |
+| **Frontend** | Node.js | Electron app, React UI |
+
+### Why Dual Environment?
+
+1. **Training (venv)**: Needs specific versions of dependencies, isolated from system
+2. **GPU Monitoring (global)**: Needs latest PyTorch with CUDA for best compatibility
+
 ## Project Structure
 
 ```
@@ -89,43 +140,51 @@ To set up everything and start both the backend and frontend with a single comma
 ```
 
 This script will:
-1. Automatically set up the **Python Virtual Environment** if missing.
-2. Install all **Backend Dependencies** (`requirements.txt`).
-3. Install all **Frontend Dependencies** (`node_modules`) if missing.
-4. Launch the **FastAPI Backend** in a new dedicated terminal.
-5. Launch the **Vite Frontend** in the current terminal.
+1. Automatically set up the **Python Virtual Environment** at `core\.venv` if missing.
+2. Install all **Backend Dependencies** from `backend/requirements.txt`.
+3. Install **LlamaFactory** in the venv (enables training).
+4. Install **PyTorch with CUDA** globally (enables GPU monitoring).
+5. Install all **Frontend Dependencies** (`node_modules`) if missing.
+6. Launch the **FastAPI Backend** in a new dedicated terminal.
+7. Launch the **Vite Frontend** in the current terminal.
 
 ---
 
 ## 🛠 Manual Quick Start
 
-### 2. Set Up Python Environment
+### 1. Set Up Python Environment
 
 ```bash
-# Option A: Using the setup script
+# Option A: Using the setup script (recommended)
 python scripts/setup_environment.py
 
 # Option B: Manual setup
-cd environment
-python -m venv venv
+cd core
+python -m venv .venv
 # Windows:
-venv\Scripts\activate
+.venv\Scripts\activate
 # Linux/macOS:
-source venv/bin/activate
+source .venv/bin/activate
+
+# Install backend dependencies
 pip install -r ../backend/requirements.txt
+
+# Install LlamaFactory (enables training)
+pip install -e ../core/LlamaFactory
+```
+
+### 2. Install CUDA PyTorch for GPU Monitoring
+
+```bash
+# Global Python (not venv)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 ```
 
 ### 3. Start Backend Server
 
 ```bash
 cd backend
-python -m uvicorn main:app --reload --port 8000
-```
-
-Or use the launcher script:
-
-```bash
-python scripts/run_backend.py --port 8000
+python main.py
 ```
 
 ### 4. Start Frontend Development Server
