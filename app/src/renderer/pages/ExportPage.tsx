@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,8 +9,10 @@ import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Download, Bot, ArrowRight } from 'lucide-react'
+import { Download, Bot, ArrowRight, RefreshCw } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { api, Model } from '@/hooks/useApi'
+import { useApp } from '@/contexts/AppContext'
 
 import { cn } from '@/lib/utils'
 
@@ -20,6 +23,8 @@ const EXPORT_DEVICES = [
 ]
 
 export function ExportPage() {
+  const { selectedModel, setSelectedModel } = useApp()
+  
   const [isExporting, setIsExporting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [logs, setLogs] = useState<string[]>([])
@@ -38,6 +43,30 @@ export function ExportPage() {
   const [exportHubModelId, setExportHubModelId] = useState('')
   const [hubPrivateRepo, setHubPrivateRepo] = useState(false)
   const [extraArgs, setExtraArgs] = useState('')
+
+  const { data: models = [], isLoading: loadingModels } = useQuery<Model[]>({
+    queryKey: ['models', 'export'],
+    queryFn: () => api.models.getFlat(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  useEffect(() => {
+    if (selectedModel && selectedModel.path) {
+      setModelPath(selectedModel.path)
+    }
+  }, [selectedModel])
+
+  const handleModelSelect = (path: string) => {
+    const model = models.find(m => m.path === path)
+    if (model) {
+      setModelPath(path)
+      setSelectedModel({
+        name: model.name,
+        path: model.path,
+        template: model.template,
+      })
+    }
+  }
 
   const handleExport = async () => {
     setIsExporting(true)
@@ -87,17 +116,39 @@ export function ExportPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <label className="text-sm font-medium">Model Path</label>
+                  <label className="text-sm font-medium">Model</label>
                   <InfoTooltip content="The base model that you wish to export or merge." impact="Loads the baseline weights before applying any checkpoints." />
                 </div>
                 <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
                   <Bot className="w-3 h-3" /> Browse <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
+              {loadingModels ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Loading models...
+                </div>
+              ) : (
+                <Select value={modelPath} onValueChange={handleModelSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a model" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {models.slice(0, 100).map(model => (
+                      <SelectItem key={model.path} value={model.path}>
+                        <div className="flex items-center gap-2">
+                          <Bot className="w-4 h-4" />
+                          <span>{model.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Input 
                 value={modelPath} 
                 onChange={(e) => setModelPath(e.target.value)}
-                placeholder="meta-llama/Llama-3.1-8B-Instruct"
+                placeholder="Or enter custom path: meta-llama/Llama-3.1-8B-Instruct"
+                className="mt-2"
               />
             </div>
 

@@ -95,23 +95,23 @@ ArclinkTune/
 │   └── tailwind.config.js
 ├── backend/                # FastAPI backend
 │   ├── routers/           # API endpoints
-│   │   ├── models.py      # Model management
+│   │   ├── models.py      # Model management (117 templates, 61 models)
 │   │   ├── training.py    # Training operations
 │   │   ├── chat.py        # Chat/inference
-│   │   └── system.py      # System monitoring
+│   │   └── system.py      # System monitoring + GPU health
 │   ├── services/           # Backend services
 │   │   ├── system_monitor.py
 │   │   └── training_service.py
+│   ├── llamafactory_data.py # Dynamic loader from LlamaFactory
 │   ├── main.py            # FastAPI app
 │   └── config.py           # Configuration
 ├── core/
-│   └── LlamaFactory/      # LlamaFactory (unchanged)
-├── scripts/                # Utility scripts
-│   ├── setup_environment.py
-│   ├── check_hardware.py
-│   ├── train_worker.py
-│   ├── run_backend.py
-│   └── quick_start.py
+│   └── LlamaFactory/      # Training engine (webui/api removed)
+├── scripts/                # Launcher scripts
+│   ├── setup.ps1          # First-time setup (PowerShell)
+│   ├── setup.bat          # First-time setup (CMD)
+│   ├── run.ps1            # Run app (PowerShell)
+│   └── run.bat            # Run app (CMD)
 ├── docker-compose.yml       # Docker deployment
 ├── Dockerfile.backend       # Backend container
 └── README.md
@@ -125,80 +125,41 @@ ArclinkTune/
 - **NVIDIA GPU** (optional, for GPU training)
 - **CUDA** (optional, for GPU acceleration)
 
-## 🚀 One-Click Execution (Recommended)
+## 🚀 Quick Start
 
-To set up everything and start both the backend and frontend with a single command, run:
+### First Time Setup (run once)
 
 ```powershell
-# Windows (PowerShell)
+# PowerShell
+.\scripts\setup.ps1
+
+# Or Command Prompt
+scripts\setup.bat
+```
+
+This installs:
+- Python virtual environment at `core\.venv`
+- Backend dependencies
+- LlamaFactory for training
+- Frontend dependencies
+- PyTorch with CUDA for GPU monitoring
+
+### Run the App (every time)
+
+```powershell
+# PowerShell
 .\scripts\run.ps1
+
+# Or Command Prompt
+scripts\run.bat
 ```
 
-```batch
-# Windows (Command Prompt)
-.\scripts\run.bat
-```
-
-This script will:
-1. Automatically set up the **Python Virtual Environment** at `core\.venv` if missing.
-2. Install all **Backend Dependencies** from `backend/requirements.txt`.
-3. Install **LlamaFactory** in the venv (enables training).
-4. Install **PyTorch with CUDA** globally (enables GPU monitoring).
-5. Install all **Frontend Dependencies** (`node_modules`) if missing.
-6. Launch the **FastAPI Backend** in a new dedicated terminal.
-7. Launch the **Vite Frontend** in the current terminal.
+This starts:
+- **Backend** on port 8000
+- **Frontend** on port 5173
+- **API Docs** at http://localhost:8000/docs
 
 ---
-
-## 🛠 Manual Quick Start
-
-### 1. Set Up Python Environment
-
-```bash
-# Option A: Using the setup script (recommended)
-python scripts/setup_environment.py
-
-# Option B: Manual setup
-cd core
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# Linux/macOS:
-source .venv/bin/activate
-
-# Install backend dependencies
-pip install -r ../backend/requirements.txt
-
-# Install LlamaFactory (enables training)
-pip install -e ../core/LlamaFactory
-```
-
-### 2. Install CUDA PyTorch for GPU Monitoring
-
-```bash
-# Global Python (not venv)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-```
-
-### 3. Start Backend Server
-
-```bash
-cd backend
-python main.py
-```
-
-### 4. Start Frontend Development Server
-
-```bash
-cd app
-npm run dev
-```
-
-### 5. Open in Browser
-
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
 
 ## Development Commands
 

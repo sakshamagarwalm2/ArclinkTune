@@ -7,6 +7,8 @@ node_modules/
 app/dist/
 app/build/
 app/.vite/
+app/release/
+app/dist-electron/
 *.egg-info/
 
 # Virtual environments

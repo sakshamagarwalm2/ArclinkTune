@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { api } from '@/hooks/useApi'
-import { Send, Bot, User, Trash2, Image, Video, Mic, Settings, Play, Square, ArrowRight } from 'lucide-react'
+import { api, Model } from '@/hooks/useApi'
+import { useApp } from '@/contexts/AppContext'
+import { Send, Bot, User, Trash2, Image, Video, Mic, Settings, Play, Square, ArrowRight, RefreshCw } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 
 interface Message {
@@ -30,6 +32,8 @@ const INFER_DTYPES = [
 ]
 
 export function ChatPage() {
+  const { selectedModel, setSelectedModel, templates, setTemplates } = useApp()
+  
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -54,6 +58,44 @@ export function ChatPage() {
   
   const [systemPrompt, setSystemPrompt] = useState('You are a helpful assistant.')
   const [extraArgs, setExtraArgs] = useState('')
+
+  const { data: models = [], isLoading: loadingModels } = useQuery<Model[]>({
+    queryKey: ['models', 'chat'],
+    queryFn: () => api.models.getFlat(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: apiTemplates = [], isLoading: loadingTemplates } = useQuery<string[]>({
+    queryKey: ['models', 'templates'],
+    queryFn: () => api.models.getTemplates(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  useEffect(() => {
+    if (apiTemplates.length > 0 && templates.length === 0) {
+      setTemplates(apiTemplates)
+    }
+  }, [apiTemplates, templates.length, setTemplates])
+
+  useEffect(() => {
+    if (selectedModel && selectedModel.path) {
+      setModelPath(selectedModel.path)
+      setTemplate(selectedModel.template || 'default')
+    }
+  }, [selectedModel])
+
+  const handleModelSelect = (path: string) => {
+    const model = models.find(m => m.path === path)
+    if (model) {
+      setModelPath(path)
+      setTemplate(model.template || 'default')
+      setSelectedModel({
+        name: model.name,
+        path: model.path,
+        template: model.template,
+      })
+    }
+  }
 
   const handleSend = async () => {
     if (!input.trim() || isLoading || !isModelLoaded) return
@@ -131,17 +173,39 @@ export function ChatPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <label className="text-sm font-medium">Model Path</label>
+                  <label className="text-sm font-medium">Model</label>
                   <InfoTooltip content="Path to the base model on your disk or HuggingFace." impact="Required for the chat interface to load and process requests." />
                 </div>
                 <Link to="/models" className="text-xs text-primary hover:underline flex items-center gap-1">
                   Browse <ArrowRight className="w-3 h-3" />
                 </Link>
               </div>
+              {loadingModels ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Loading models...
+                </div>
+              ) : (
+                <Select value={modelPath} onValueChange={handleModelSelect} disabled={isModelLoaded}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a model" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {models.slice(0, 100).map(model => (
+                      <SelectItem key={model.path} value={model.path}>
+                        <div className="flex items-center gap-2">
+                          <Bot className="w-4 h-4" />
+                          <span>{model.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Input 
                 value={modelPath} 
                 onChange={(e) => setModelPath(e.target.value)}
-                placeholder="meta-llama/Llama-3.1-8B-Instruct"
+                placeholder="Or enter custom path: meta-llama/Llama-3.1-8B-Instruct"
+                className="mt-2"
                 disabled={isModelLoaded}
               />
             </div>
@@ -185,12 +249,17 @@ export function ChatPage() {
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60">
                     <SelectItem value="default">Default</SelectItem>
-                    <SelectItem value="llama3">Llama 3</SelectItem>
-                    <SelectItem value="qwen">Qwen</SelectItem>
-                    <SelectItem value="chatglm3">ChatGLM3</SelectItem>
-                    <SelectItem value="mixtral">Mixtral</SelectItem>
+                    {loadingTemplates && templates.length === 0 ? (
+                      <div className="flex items-center gap-2 px-2 py-1 text-muted-foreground text-xs">
+                        <RefreshCw className="w-3 h-3 animate-spin" /> Loading...
+                      </div>
+                    ) : (
+                      templates.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

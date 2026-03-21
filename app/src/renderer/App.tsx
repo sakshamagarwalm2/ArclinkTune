@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 
 import { useTheme } from './hooks/useTheme'
+import { AppProvider } from './contexts/AppContext'
 import { Layout } from './components/layout/Layout'
 import { ModelsPage } from './pages/ModelsPage'
 import { TrainPage } from './pages/TrainPage'
@@ -12,7 +13,7 @@ import { MonitorPage } from './pages/MonitorPage'
 import { SetupPage } from './pages/SetupPage'
 import { AboutPage } from './pages/AboutPage'
 
-function App() {
+function AppContent() {
   useTheme()
   const [isFirstLaunch, setIsFirstLaunch] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -54,20 +55,26 @@ function App() {
   }
 
   return (
-    <>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/models" replace />} />
-          <Route path="/models" element={<ModelsPage />} />
-          <Route path="/train" element={<TrainPage />} />
-          <Route path="/evaluate" element={<EvaluatePage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/export" element={<ExportPage />} />
-          <Route path="/monitor" element={<MonitorPage />} />
-          <Route path="/about" element={<AboutPage />} />
-        </Routes>
-      </Layout>
-    </>
+    <Layout>
+      <Routes>
+        <Route path="/" element={<Navigate to="/models" replace />} />
+        <Route path="/models" element={<ModelsPage />} />
+        <Route path="/train" element={<TrainPage />} />
+        <Route path="/evaluate" element={<EvaluatePage />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/export" element={<ExportPage />} />
+        <Route path="/monitor" element={<MonitorPage />} />
+        <Route path="/about" element={<AboutPage />} />
+      </Routes>
+    </Layout>
+  )
+}
+
+function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
   )
 }
 

@@ -18,6 +18,14 @@ export interface ElectronAPI {
     getPath: (name: string) => Promise<string | null>;
     getHomeDir: () => Promise<string>;
   };
+  shell: {
+    openPath: (path: string) => Promise<{ success: boolean; error?: string }>;
+    openExternal: (url: string) => Promise<void>;
+  };
+  config: {
+    get: (key: string) => Promise<string | null>;
+    set: (key: string, value: string) => Promise<void>;
+  };
   system: {
     getConfigDir: () => Promise<string>;
     getModelsDir: () => Promise<string>;
@@ -52,6 +60,14 @@ const electronAPI: ElectronAPI = {
     getVersion: () => ipcRenderer.invoke('app:getVersion'),
     getPath: (name) => ipcRenderer.invoke('app:getPath', name),
     getHomeDir: () => ipcRenderer.invoke('app:getHomeDir'),
+  },
+  shell: {
+    openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  },
+  config: {
+    get: (key) => ipcRenderer.invoke('config:get', key),
+    set: (key, value) => ipcRenderer.invoke('config:set', key, value),
   },
   system: {
     getConfigDir: () => ipcRenderer.invoke('system:getConfigDir'),

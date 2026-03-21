@@ -22,6 +22,13 @@ export interface Model {
   template?: string
   downloaded: boolean
   size?: string
+  downloads?: number
+  likes?: number
+}
+
+export interface ModelGroup {
+  groups: Record<string, Model[]>
+  total: number
 }
 
 export interface TrainingConfig {
@@ -120,6 +127,27 @@ export interface GPUHealthResult {
   details: Record<string, number>
 }
 
+export interface LocalModel {
+  name: string
+  path: string
+  size: string
+  local_path: string
+}
+
+export interface DownloadTask {
+  task_id: string
+  model_path: string
+  model_name: string
+  status: 'pending' | 'downloading' | 'completed' | 'failed' | 'cancelled' | 'not_found'
+  progress: number
+  downloaded: string
+  total: string
+  speed: string
+  eta: string
+  error?: string
+  local_path?: string
+}
+
 export function useApi() {
   const models = {
     getAll: () => useQuery<Model[]>({ queryKey: ['models'], queryFn: () => fetchApi('/models/') }),
@@ -150,13 +178,22 @@ export function useApi() {
 
 export const api = {
   models: {
-    getAll: () => fetchApi<Model[]>('/models/'),
+    getAll: () => fetchApi<ModelGroup>('/models/'),
+    getFlat: () => fetchApi<Model[]>('/models/flat'),
+    getGroups: () => fetchApi<{ groups: string[] }>('/models/groups'),
     getSupported: () => fetchApi<string[]>('/models/supported'),
-    getLocal: () => fetchApi<Model[]>('/models/local'),
+    getLocal: () => fetchApi<LocalModel[]>('/models/local'),
+    getTemplates: () => fetchApi<string[]>('/models/templates'),
+    getHubs: () => fetchApi<{ id: string; name: string; icon: string }[]>('/models/hubs'),
+    getModelsDir: () => fetchApi<{ path: string }>('/models/models_dir'),
     getCheckpoints: (modelName: string) => fetchApi<string[]>(`/models/checkpoints/${encodeURIComponent(modelName)}`),
-    download: (body: { model_name: string; hub?: string }) => fetchApi<{ task_id: string }>('/models/download', { method: 'POST', body: JSON.stringify(body) }),
-    getDownloadStatus: (taskId: string) => fetchApi(`/models/download/${taskId}`),
-    cancelDownload: (taskId: string) => fetchApi(`/models/download/${taskId}`, { method: 'DELETE' }),
+    download: (body: { model_name: string; hub?: string }) => fetchApi<{ task_id?: string; error?: string }>('/models/download', { method: 'POST', body: JSON.stringify(body) }),
+    getDownloadStatus: (taskId: string) => fetchApi<DownloadTask>(`/models/download/${encodeURIComponent(taskId)}`),
+    getAllDownloads: () => fetchApi<DownloadTask[]>('/models/downloads'),
+    cancelDownload: (taskId: string) => fetchApi<{ success: boolean }>(`/models/download/${encodeURIComponent(taskId)}`, { method: 'DELETE' }),
+    deleteDownload: (taskId: string) => fetchApi<{ success: boolean }>(`/models/download/${encodeURIComponent(taskId)}/delete`, { method: 'DELETE' }),
+    deleteLocalModel: (localPath: string) => fetchApi<{ success: boolean }>(`/models/local/${encodeURIComponent(localPath)}`, { method: 'DELETE' }),
+    clearDownloads: () => fetchApi<{ success: boolean }>('/models/downloads/clear', { method: 'DELETE' }),
   },
   training: {
     getConfig: () => fetchApi<TrainingConfig>('/training/config'),

@@ -2,75 +2,84 @@
 setlocal enabledelayedexpansion
 set ROOT=%~dp0..
 echo ==========================================
-echo    ArclinkTune System Launcher (One-Click)
+echo    ArclinkTune Launcher
 echo ==========================================
 echo.
 
 set VENV_PATH=%ROOT%\core\.venv
 
-:: 1. Create/check virtual environment
-echo [1/5] Checking Python environment...
+:: Check if setup is needed
+echo [INFO] Checking environment...
+
 if NOT exist "%VENV_PATH%" (
-    echo     Creating virtual environment...
-    python -m venv "%VENV_PATH%"
+    echo.
+    echo [ERROR] Virtual environment not found!
+    echo Please run setup first:
+    echo   scripts\setup.bat
+    echo.
+    exit /b 1
 )
-echo [OK] Python environment ready
 
-:: 2. Install backend dependencies
-echo.
-echo [2/5] Installing backend dependencies...
-call "%VENV_PATH%\Scripts\pip" install -q -r "%ROOT%\backend\requirements.txt"
-echo [OK] Backend dependencies installed
-
-:: 3. Install LlamaFactory in venv
-echo.
-echo [3/5] Installing LlamaFactory...
-call "%VENV_PATH%\Scripts\pip" install -q -e "%ROOT%\core\LlamaFactory"
-echo [OK] LlamaFactory installed
-
-:: 4. Ensure CUDA PyTorch for GPU monitoring (global)
-echo.
-echo [4/5] Checking GPU monitoring...
-python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" >nul 2>&1
-if %errorLevel% neq 0 (
-    echo     Installing PyTorch with CUDA...
-    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
-)
-python -c "import torch; print('     CUDA: ' + str(torch.cuda.is_available()))" >nul 2>&1
-echo [OK] GPU monitoring ready
-
-:: 5. Check frontend dependencies
-echo.
-echo [5/5] Checking frontend dependencies...
 if NOT exist "%ROOT%\app\node_modules" (
-    echo     Installing npm packages...
-    cd /d "%ROOT%\app" && call npm install
-    cd /d "%ROOT%"
+    echo.
+    echo [ERROR] Frontend dependencies not installed!
+    echo Please run setup first:
+    echo   scripts\setup.bat
+    echo.
+    exit /b 1
 )
-echo [OK] Frontend ready
+
+echo [OK] Virtual environment found
+echo [OK] Frontend dependencies found
+
+:: Check GPU
+python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" >nul 2>&1
+if %errorLevel% equ 0 (
+    python -c "import torch; print('[OK] GPU: ' + torch.cuda.get_device_name(0))"
+) else (
+    echo [!] GPU monitoring unavailable
+)
 
 echo.
-echo ==========================================
-echo    Launching ArclinkTune
-echo ==========================================
+echo Starting services...
 echo.
+
+:: Kill existing processes
+netstat -ano ^| findstr ":8000" ^| findstr "LISTENING" >nul
+if !errorLevel! equ 0 (
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING" ^| findstr "TCP"') do (
+        taskkill //F //PID %%a >nul 2>&1
+    )
+)
+
+netstat -ano ^| findstr ":5173" ^| findstr "LISTENING" >nul
+if !errorLevel! equ 0 (
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173" ^| findstr "LISTENING" ^| findstr "TCP"') do (
+        taskkill //F //PID %%a >nul 2>&1
+    )
+)
+
+timeout /t 1 /nobreak > nul
 
 :: Launch Backend
-echo Starting Backend on port 8000...
+echo [1/2] Starting Backend on port 8000...
 start "ArclinkTune-Backend" cmd /k "cd /d %ROOT%\backend && python main.py"
 
 :: Wait for backend
-echo Waiting for backend...
-for /L %%i in (1,1,15) do (
+echo       Waiting for backend...
+for /L %%i in (1,1,20) do (
     curl -s http://localhost:8000/health >nul 2>&1
     if !errorLevel! equ 0 (
-        echo [OK] Backend running on http://localhost:8000
-        goto :ready
+        echo       Backend ready: http://localhost:8000
+        echo       API Docs: http://localhost:8000/docs
+        goto :launch_frontend
     )
     timeout /t 1 /nobreak > nul
 )
 
-:ready
+:launch_frontend
+echo.
+echo [2/2] Starting Frontend on port 5173...
 echo.
 echo ==========================================
 echo    ArclinkTune is ready!

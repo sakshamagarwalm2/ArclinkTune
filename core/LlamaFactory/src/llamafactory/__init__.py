@@ -15,7 +15,7 @@
 r"""Efficient fine-tuning of large language models.
 
 Level:
-  api, webui > chat, eval, train > data, model > hparams > extras
+  chat, eval, train > data, model > hparams > extras
 
 Disable version checking: DISABLE_VERSION_CHECK=1
 Enable VRAM recording: RECORD_VRAM=1

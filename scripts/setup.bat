@@ -1,120 +1,74 @@
 @echo off
 setlocal enabledelayedexpansion
+set ROOT=%~dp0..
 
 echo ================================================
-echo ArclinkTune Setup Script
+echo ArclinkTune Setup
 echo ================================================
 echo.
 
-set "SCRIPT_DIR=%~dp0"
-cd /d "%SCRIPT_DIR%"
-
-:check_admin
-net session >nul 2>&1
-if %errorLevel% neq 0 (
-    echo [INFO] Some operations may require admin privileges
-    echo.
-)
-
-:check_python
-echo [1/5] Checking Python installation...
+:: Check Python
+echo [1/6] Checking Python...
 python --version >nul 2>&1
 if %errorLevel% neq 0 (
-    echo [ERROR] Python not found. Please install Python 3.10+ from python.org
+    echo [ERROR] Python not found. Please install Python 3.11+
     pause
     exit /b 1
 )
+for /f "delims=" %%i in ('python --version 2^>^&1') do echo [OK] %%i
 
-for /f "delims=" %%i in ('python --version 2^>^&1') do set "PYTHON_VERSION=%%i"
-echo [OK] %PYTHON_VERSION%
-
-:frontend_deps
+:: Create venv
 echo.
-echo [2/5] Installing frontend dependencies...
-cd app
-if exist "package-lock.json" (
-    call npm ci
-) else (
-    call npm install
+echo [2/6] Creating virtual environment...
+if NOT exist "%ROOT%\core\.venv" (
+    python -m venv "%ROOT%\core\.venv"
 )
-if %errorLevel% neq 0 (
-    echo [ERROR] Failed to install frontend dependencies
-    pause
-    exit /b 1
+echo [OK] Virtual environment ready
+
+:: Install backend deps
+echo.
+echo [3/6] Installing backend dependencies...
+call "%ROOT%\core\.venv\Scripts\pip" install --upgrade pip -q
+call "%ROOT%\core\.venv\Scripts\pip" install -q -r "%ROOT%\backend\requirements.txt"
+echo [OK] Backend dependencies installed
+
+:: Install LlamaFactory
+echo.
+echo [4/6] Installing LlamaFactory...
+call "%ROOT%\core\.venv\Scripts\pip" install -q -e "%ROOT%\core\LlamaFactory"
+echo [OK] LlamaFactory installed
+
+:: Install frontend deps
+echo.
+echo [5/6] Installing frontend dependencies...
+if NOT exist "%ROOT%\app\node_modules" (
+    cd /d "%ROOT%\app" && call npm install
+    cd /d "%ROOT%"
 )
 echo [OK] Frontend dependencies installed
-cd ..
 
-:backend_deps
+:: Install CUDA PyTorch
 echo.
-echo [3/5] Installing backend dependencies...
-cd backend
-call pip install -r requirements.txt
+echo [6/6] Setting up GPU monitoring...
+python -c "import torch; exit(0 if torch.cuda.is_available() else 1)" >nul 2>&1
 if %errorLevel% neq 0 (
-    echo [ERROR] Failed to install backend dependencies
-    pause
-    exit /b 1
+    echo       Installing PyTorch with CUDA...
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
 )
-echo [OK] Backend dependencies installed
-cd ..
+python -c "import torch; print('       PyTorch: ' + torch.__version__); print('       CUDA: ' + str(torch.cuda.is_available()))"
+echo [OK] GPU monitoring ready
 
-:llamafactory_setup
-echo.
-echo [4/5] Setting up LlamaFactory virtual environment...
-cd core\LlamaFactory
-
-if exist "..\..\.venv" (
-    echo [INFO] Virtual environment exists, activating...
-) else (
-    echo [INFO] Creating virtual environment...
-    python -m venv ..\..\.venv
-)
-
-call ..\..\.venv\Scripts\activate.bat
-
-echo [INFO] Upgrading pip...
-python -m pip install --upgrade pip
-
-echo [INFO] Installing LlamaFactory dependencies...
-pip install -e . -q
-
-if %errorLevel% neq 0 (
-    echo [ERROR] Failed to install LlamaFactory dependencies
-    pause
-    exit /b 1
-)
-echo [OK] LlamaFactory dependencies installed
-
-cd ..\..
-call .venv\Scripts\deactivate.bat
-
-:gpu_check
-echo.
-echo [5/5] GPU Setup for Monitoring...
-echo [INFO] Installing PyTorch with CUDA support for GPU monitoring...
-
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
-
-if %errorLevel% neq 0 (
-    echo [WARNING] Failed to install CUDA PyTorch. GPU monitoring may not work.
-    echo [INFO] You can install manually with:
-    echo        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-) else (
-    echo [OK] CUDA PyTorch installed for monitoring
-    python -c "import torch; print('    PyTorch: ' + torch.__version__); print('    CUDA: ' + str(torch.cuda.is_available()))"
-)
-
-:final
 echo.
 echo ================================================
 echo Setup Complete!
 echo ================================================
 echo.
-echo You can now run the app with:
-echo   npm run dev
+echo Run the app with:
+echo   scripts\run.bat
 echo.
-echo Note: GPU monitoring uses global PyTorch with CUDA.
-echo       Training uses the .venv virtual environment.
+echo Or manually:
+echo   Backend:  cd backend ^&^& python main.py
+echo   Frontend: cd app ^&^& npm run dev
 echo.
 
 pause

@@ -22,6 +22,14 @@ const electronAPI = {
     getPath: (name) => electron.ipcRenderer.invoke("app:getPath", name),
     getHomeDir: () => electron.ipcRenderer.invoke("app:getHomeDir")
   },
+  shell: {
+    openPath: (path) => electron.ipcRenderer.invoke("shell:openPath", path),
+    openExternal: (url) => electron.ipcRenderer.invoke("shell:openExternal", url)
+  },
+  config: {
+    get: (key) => electron.ipcRenderer.invoke("config:get", key),
+    set: (key, value) => electron.ipcRenderer.invoke("config:set", key, value)
+  },
   system: {
     getConfigDir: () => electron.ipcRenderer.invoke("system:getConfigDir"),
     getModelsDir: () => electron.ipcRenderer.invoke("system:getModelsDir"),
