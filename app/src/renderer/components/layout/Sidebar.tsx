@@ -10,6 +10,7 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
+  Info,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -22,19 +23,21 @@ const navItems = [
   { path: '/chat', icon: MessageSquare, label: 'Chat', description: 'Test your models' },
   { path: '/export', icon: Download, label: 'Export', description: 'Save trained models' },
   { path: '/monitor', icon: Monitor, label: 'Monitor', description: 'System resources' },
+  { path: '/about', icon: Info, label: 'About', description: 'App & Creator info' },
 ]
 
-export function Sidebar() {
+export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?: boolean; setMobileMenuOpen?: (v: boolean) => void }) {
   const [collapsed, setCollapsed] = useState(false)
   const location = useLocation()
 
   return (
     <aside
       className={cn(
-        'h-full flex flex-col transition-all duration-300 ease-out',
-        'bg-card/90 dark:bg-card/60 backdrop-blur-xl',
+        'fixed inset-y-0 left-0 z-50 md:relative h-full flex flex-col transition-all duration-300 ease-out shadow-2xl md:shadow-none',
+        'bg-card/95 dark:bg-card/80 backdrop-blur-xl md:bg-card/90 md:dark:bg-card/60',
         'border-r border-border/50 dark:border-primary/5',
-        collapsed ? 'w-[72px]' : 'w-64'
+        collapsed ? 'w-[72px]' : 'w-64',
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
       )}
     >
       {/* Brand */}
@@ -68,6 +71,7 @@ export function Sidebar() {
               <TooltipTrigger asChild>
                 <NavLink
                   to={item.path}
+                  onClick={() => setMobileMenuOpen?.(false)}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group',
                     isActive

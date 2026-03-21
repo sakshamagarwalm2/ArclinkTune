@@ -74,13 +74,13 @@ export function ModelsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
             <Bot className="w-6 h-6 text-primary" />
             Model Hub
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Browse, download and manage language models</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Browse, download and manage language models</p>
         </div>
         <div className="flex items-center gap-2">
           <Button 
@@ -105,20 +105,20 @@ export function ModelsPage() {
       {/* Search Bar */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1 group">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search models by name or provider..."
-                className="pl-10"
+                placeholder="Search models..."
+                className="pl-10 text-sm"
               />
               <InfoTooltip content="Search through various LLM architectures." impact="Helps you find specific models like Llama, Qwen, or Mistral." />
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <Select value={selectedHub} onValueChange={setSelectedHub}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full md:w-32 lg:w-40 h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -149,7 +149,7 @@ export function ModelsPage() {
 
         <TabsContent value="popular">
           {viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredModels.map(model => (
                 <Card key={model.id} className="group card-hover">
                   <CardHeader className="pb-3">
@@ -283,7 +283,7 @@ export function ModelsPage() {
         </TabsContent>
 
         <TabsContent value="custom">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Custom Model URL</CardTitle>

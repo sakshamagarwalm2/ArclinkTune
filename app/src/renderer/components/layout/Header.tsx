@@ -1,7 +1,8 @@
 import { useLocation } from 'react-router-dom'
-import { Sun, Moon, Sparkles } from 'lucide-react'
+import { Sun, Moon, Sparkles, Menu } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/useTheme'
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
@@ -13,20 +14,28 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   '/monitor': { title: 'System Monitor', subtitle: 'Real-time hardware stats' },
 }
 
-export function Header() {
+export function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
   const location = useLocation()
   const { theme, toggleTheme } = useTheme()
 
   const page = pageTitles[location.pathname] || { title: 'ArclinkTune', subtitle: 'LLM Fine-tuning Studio' }
 
   return (
-    <header className="h-14 border-b border-border/50 dark:border-primary/5 bg-card/50 dark:bg-card/30 backdrop-blur-xl flex items-center justify-between px-6">
-      <div className="flex items-center gap-3">
-        <div>
-          <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-neon-violet bg-clip-text text-transparent">
+    <header className="h-14 border-b border-border/50 dark:border-primary/5 bg-card/50 dark:bg-card/30 backdrop-blur-xl flex items-center justify-between px-4 md:px-6">
+      <div className="flex items-center gap-2 md:gap-3">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="md:hidden text-muted-foreground hover:text-primary -ml-2"
+          onClick={onMenuToggle}
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+        <div className="min-w-0">
+          <h1 className="text-sm md:text-lg font-bold bg-gradient-to-r from-primary to-neon-violet bg-clip-text text-transparent truncate">
             {page.title}
           </h1>
-          <p className="text-xs text-muted-foreground -mt-0.5">{page.subtitle}</p>
+          <p className="hidden md:block text-xs text-muted-foreground -mt-0.5">{page.subtitle}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">

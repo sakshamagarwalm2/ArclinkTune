@@ -11,6 +11,8 @@ import { Switch } from '@/components/ui/switch'
 import { Download, Bot, ArrowRight } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 
+import { cn } from '@/lib/utils'
+
 const QUANT_BITS = ['none', '8', '4', '3', '2']
 const EXPORT_DEVICES = [
   { value: 'cpu', label: 'CPU' },
@@ -59,20 +61,23 @@ export function ExportPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
             <Download className="w-6 h-6 text-primary" />
             Export Model
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Export trained models for deployment</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Export trained models for deployment</p>
         </div>
-        <Badge variant={isExporting ? 'default' : 'secondary'} className={isExporting ? 'bg-neon-amber text-white animate-pulse' : ''}>
+        <Badge variant={isExporting ? 'default' : 'secondary'} className={cn(
+          "transition-all shrink-0",
+          isExporting ? 'bg-neon-amber text-white animate-pulse' : ''
+        )}>
           {isExporting ? '● Exporting' : 'Ready'}
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Source Model</CardTitle>
@@ -177,7 +182,10 @@ export function ExportPage() {
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-              <span className="text-sm">Use Legacy Format (.bin)</span>
+              <div className="flex items-center">
+                <span className="text-sm">Use Legacy Format (.bin)</span>
+                <InfoTooltip content="Exports weights in the older torch .bin format instead of safetensors." impact="Only necessary for compatibility with older inference engines." />
+              </div>
               <Switch
                 checked={exportLegacyFormat}
                 onCheckedChange={setExportLegacyFormat}
@@ -246,7 +254,10 @@ export function ExportPage() {
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-              <span className="text-sm">Make Repository Private</span>
+              <div className="flex items-center">
+                <span className="text-sm">Make Repository Private</span>
+                <InfoTooltip content="Toggles the visibility restricted mode on HuggingFace." impact="Prevents public access to your fine-tuned weights." />
+              </div>
               <Switch
                 checked={hubPrivateRepo}
                 onCheckedChange={setHubPrivateRepo}
@@ -284,24 +295,34 @@ export function ExportPage() {
           {isExporting && (
             <div>
               <div className="flex justify-between text-sm mb-1">
-                <span>Export Progress</span>
+                <div className="flex items-center">
+                  <span>Export Progress</span>
+                  <InfoTooltip content="Status of the merging and file writing process." impact="Provides feedback during high-disk-activity operations." />
+                </div>
                 <span className="text-primary font-medium tabular-nums">{progress.toFixed(1)}%</span>
               </div>
               <Progress value={progress} className="h-2" variant="cyan" />
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setLogs([])}>
-              Clear Logs
-            </Button>
-            <Button className="flex-1" onClick={handleExport} disabled={isExporting || !exportDir}>
-              <Download className="w-4 h-4 mr-2" /> 
-              {isExporting ? 'Exporting...' : 'Start Export'}
-            </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex items-center gap-1 group">
+              <Button variant="outline" onClick={() => setLogs([])} className="w-full sm:w-auto">
+                Clear Logs
+              </Button>
+              <InfoTooltip content="Wipes the display console for a clean view." impact="Does not affect file logs or training state." />
+            </div>
+            
+            <div className="flex items-center gap-1 group flex-1">
+              <Button className="w-full" onClick={handleExport} disabled={isExporting || !exportDir}>
+                <Download className="w-4 h-4 mr-2" /> 
+                {isExporting ? 'Exporting...' : 'Start Export'}
+              </Button>
+              <InfoTooltip content="Begins the final merge or quantization and saves the model." impact="Writes several gigabytes of data to your output directory." />
+            </div>
           </div>
 
-          <div className="h-32 overflow-auto p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
+          <div className="min-h-[128px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Export logs will appear here...</p>
             ) : (

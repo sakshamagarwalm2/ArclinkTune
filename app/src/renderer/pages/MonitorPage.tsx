@@ -108,20 +108,20 @@ export function MonitorPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
             <Monitor className="w-6 h-6 text-primary" />
             System Monitor
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Real-time hardware utilization</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Real-time hardware utilization</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => setIsPaused(!isPaused)}
-            className="w-24"
+            className="flex-1 sm:w-24"
           >
             {isPaused ? <><Play className="w-4 h-4 mr-1" /> Resume</> : <><Pause className="w-4 h-4 mr-1" /> Pause</>}
           </Button>
@@ -129,8 +129,9 @@ export function MonitorPage() {
             variant="outline" 
             size="sm"
             onClick={() => refresh()}
+            className="flex-1 sm:w-auto text-xs md:text-sm"
           >
-            <Activity className="w-4 h-4 mr-1" /> Force Refresh
+            <Activity className="w-4 h-4 mr-1 md:mr-2" /> Force Refresh
           </Button>
         </div>
       </div>
@@ -143,7 +144,7 @@ export function MonitorPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {/* CPU Card */}
           <Card className="glass-card hover:shadow-neon transition-shadow">
             <CardHeader className="pb-2">

@@ -11,6 +11,8 @@ import { Switch } from '@/components/ui/switch'
 import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 
+import { cn } from '@/lib/utils'
+
 export function EvaluatePage() {
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -64,20 +66,23 @@ export function EvaluatePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
             <LineChart className="w-6 h-6 text-primary" />
             Evaluation
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Evaluate model performance with benchmarks</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Evaluate model performance with benchmarks</p>
         </div>
-        <Badge variant={isRunning ? 'default' : 'secondary'} className={isRunning ? 'bg-neon-amber text-white animate-pulse' : ''}>
+        <Badge variant={isRunning ? 'default' : 'secondary'} className={cn(
+          "transition-all shrink-0",
+          isRunning ? 'bg-neon-amber text-white animate-pulse' : ''
+        )}>
           {isRunning ? '● Running' : 'Ready'}
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Model Settings</CardTitle>
@@ -218,7 +223,10 @@ export function EvaluatePage() {
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-              <span className="text-sm">Run Predictions</span>
+              <div className="flex items-center">
+                <span className="text-sm">Run Predictions</span>
+                <InfoTooltip content="Generates text outputs for each evaluation sample." impact="Necessary for qualitative review of model responses alongside benchmark scores." />
+              </div>
               <Switch checked={predict} onCheckedChange={setPredict} />
             </div>
           </CardContent>
@@ -293,16 +301,22 @@ export function EvaluatePage() {
               </div>
             </div>
 
-            <Button variant="outline" className="w-full" onClick={handlePreview}>
-              <Eye className="w-4 h-4 mr-2" /> Preview Command
-            </Button>
+            <div className="flex items-center gap-1 group">
+              <Button variant="outline" className="w-full" onClick={handlePreview}>
+                <Eye className="w-4 h-4 mr-2" /> Preview Command
+              </Button>
+              <InfoTooltip content="Generates the CLI command for this evaluation run." impact="Allows manual verification of all flags and paths before execution." />
+            </div>
 
             {/* Interlink */}
-            <Link to="/export">
-              <Button variant="outline" className="w-full gap-2 mt-2">
-                <Download className="w-4 h-4" /> Export Results <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
+            <div className="flex items-center gap-1 group mt-2">
+              <Link to="/export" className="flex-1">
+                <Button variant="outline" className="w-full gap-2">
+                  <Download className="w-4 h-4" /> Export Results <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              <InfoTooltip content="Proceed to the Export module to save or merge your model results." impact="Connects the evaluation workflow to final deployment steps." />
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -310,19 +324,25 @@ export function EvaluatePage() {
       {/* Actions */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle className="text-base flex items-center gap-2">
               <LineChart className="w-4 h-4 text-primary" /> Actions
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               {isRunning ? (
-                <Button variant="destructive" onClick={handleStop}>
-                  <Square className="w-4 h-4 mr-2" /> Stop
-                </Button>
+                <div className="flex items-center gap-1 group w-full sm:w-auto">
+                  <Button variant="destructive" onClick={handleStop} className="w-full sm:w-auto">
+                    <Square className="w-4 h-4 mr-2" /> Stop Evaluation
+                  </Button>
+                  <InfoTooltip content="Safety stops the active benchmark process." impact="Stops resource consumption; partial logs will be saved." />
+                </div>
               ) : (
-                <Button onClick={handleStart}>
-                  <Play className="w-4 h-4 mr-2" /> Start Evaluation
-                </Button>
+                <div className="flex items-center gap-1 group w-full sm:w-auto">
+                  <Button onClick={handleStart} className="w-full sm:w-auto">
+                    <Play className="w-4 h-4 mr-2" /> Start Evaluation
+                  </Button>
+                  <InfoTooltip content="Begins the benchmarking process on the selected datasets." impact="Runs the model through thousands of questions to calculate accuracy scores." />
+                </div>
               )}
             </div>
           </div>
@@ -331,13 +351,16 @@ export function EvaluatePage() {
           {isRunning && (
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
-                <span>Progress</span>
+                <div className="flex items-center">
+                  <span>Progress</span>
+                  <InfoTooltip content="Real-time completion percentage of the evaluation job." impact="Helps monitor status and estimate time to results." />
+                </div>
                 <span className="text-primary font-medium tabular-nums">{progress.toFixed(1)}%</span>
               </div>
               <Progress value={progress} className="h-2" variant="green" />
             </div>
           )}
-          <div className="h-48 overflow-auto p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
+          <div className="min-h-[192px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Evaluation logs will appear here...</p>
             ) : (

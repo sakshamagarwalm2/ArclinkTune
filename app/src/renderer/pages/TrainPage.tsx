@@ -11,10 +11,12 @@ import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/hooks/useApi'
+import { cn } from '@/lib/utils'
 import { useTraining } from '@/hooks/useTraining'
 import { 
   Play, Square, Save, FolderOpen, Eye, Settings, 
-  Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight
+  Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight,
+  Info, Heart, Sparkles, Box
 } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 
@@ -136,6 +138,7 @@ export function TrainPage() {
   const { status, progress, startTraining, stopTraining } = useTraining()
   const isRunning = status === 'running'
   
+  const [activeSubTab, setActiveSubTab] = useState<'freeze' | 'rlhf' | 'galore' | 'apollo' | 'badam'>('freeze')
   const [config, setConfig] = useState<TrainingConfig>({
     stage: 'sft',
     model_name_or_path: '',
@@ -214,6 +217,40 @@ export function TrainPage() {
     setConfig(prev => ({ ...prev, [key]: value }))
   }
 
+  // Helper for premium segmented controls
+  const SegmentedControl = ({ 
+    options, 
+    value, 
+    onChange, 
+    columns = 3 
+  }: { 
+    options: { value: string, label: string }[], 
+    value: string, 
+    onChange: (v: string) => void,
+    columns?: number
+  }) => (
+    <div className={cn(
+      "grid gap-1.5 p-1 rounded-xl bg-muted/20 border border-primary/5 shadow-inner-glow",
+      columns === 2 ? "grid-cols-2" : columns === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2 md:grid-cols-3"
+    )}>
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={cn(
+            "px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 border border-transparent truncate",
+            value === opt.value
+              ? "bg-primary/20 text-primary border-primary/30 shadow-neon-sm"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+
   const handlePreview = async () => {
     const response = await api.training.preview(config as any) as { command: string }
     setPreviewCommand(response.command)
@@ -236,34 +273,43 @@ export function TrainPage() {
   return (
     <div className="h-full flex flex-col gap-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
             <Rocket className="w-6 h-6 text-primary" />
             Training Configuration
           </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Configure and run model fine-tuning</p>
+          <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Configure and run model fine-tuning</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={isRunning ? 'default' : 'secondary'} className={isRunning ? 'bg-neon-amber text-white animate-pulse' : ''}>
+        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+          <Badge variant={isRunning ? 'default' : 'secondary'} className={cn(
+            "whitespace-nowrap transition-all",
+            isRunning ? 'bg-neon-amber text-white animate-pulse' : ''
+          )}>
             {isRunning ? '● Training' : 'Ready'}
           </Badge>
+          <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
+            <div className="h-2 w-2 rounded-full bg-neon-green" />
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">Backend Connected</span>
+          </div>
         </div>
       </div>
 
       <Tabs defaultValue="basic" className="flex-1">
-        <TabsList className="grid grid-cols-6 w-fit">
-          <TabsTrigger value="basic" className="gap-1.5"><Settings className="w-3.5 h-3.5" /> Basic</TabsTrigger>
-          <TabsTrigger value="model" className="gap-1.5"><Cpu className="w-3.5 h-3.5" /> Model</TabsTrigger>
-          <TabsTrigger value="hyperparams" className="gap-1.5"><Brain className="w-3.5 h-3.5" /> Hyperparams</TabsTrigger>
-          <TabsTrigger value="lora" className="gap-1.5"><Layers className="w-3.5 h-3.5" /> LoRA</TabsTrigger>
-          <TabsTrigger value="advanced" className="gap-1.5"><Zap className="w-3.5 h-3.5" /> Advanced</TabsTrigger>
-          <TabsTrigger value="output" className="gap-1.5"><Activity className="w-3.5 h-3.5" /> Output</TabsTrigger>
-        </TabsList>
+        <div className="mb-4">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 h-auto w-full gap-1 brand-gradient-subtle p-1 border border-primary/10">
+            <TabsTrigger value="basic" className="gap-1.5 py-2.5 sm:py-2"><Settings className="w-3.5 h-3.5" /> Basic</TabsTrigger>
+            <TabsTrigger value="model" className="gap-1.5 py-2.5 sm:py-2"><Cpu className="w-3.5 h-3.5" /> Model</TabsTrigger>
+            <TabsTrigger value="hyperparams" className="gap-1.5 py-2.5 sm:py-2"><Brain className="w-3.5 h-3.5" /> Hyperparams</TabsTrigger>
+            <TabsTrigger value="lora" className="gap-1.5 py-2.5 sm:py-2"><Layers className="w-3.5 h-3.5" /> LoRA</TabsTrigger>
+            <TabsTrigger value="advanced" className="gap-1.5 py-2.5 sm:py-2"><Zap className="w-3.5 h-3.5" /> Advanced</TabsTrigger>
+            <TabsTrigger value="output" className="gap-1.5 py-2.5 sm:py-2"><Activity className="w-3.5 h-3.5" /> Output</TabsTrigger>
+          </TabsList>
+        </div>
 
-        <div className="mt-4 overflow-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+        <div className="mt-4">
           <TabsContent value="basic">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Basic Settings</CardTitle>
@@ -280,8 +326,8 @@ export function TrainPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {TRAINING_STAGES.map(stage => (
-                          <SelectItem key={stage.value} value={stage.value}>{stage.label}</SelectItem>
+                        {TRAINING_STAGES.map(s => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -382,8 +428,8 @@ export function TrainPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {FINETUNING_TYPES.map(ft => (
-                          <SelectItem key={ft.value} value={ft.value}>{ft.label}</SelectItem>
+                        {FINETUNING_TYPES.map(type => (
+                          <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -411,23 +457,18 @@ export function TrainPage() {
                 <CardDescription>Quantization, boosters, and architecture settings</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <div className="flex items-center">
                         <label className="text-sm font-medium">Quantization Bit</label>
                         <InfoTooltip content="Precision level of the model weights (4-bit, 8-bit)." impact="Lower bits save VRAM at the cost of slight accuracy degradation." />
                       </div>
-                      <Select value={config.quantization_bit} onValueChange={(v) => updateConfig('quantization_bit', v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {QUANT_BITS.map(b => (
-                            <SelectItem key={b} value={b}>{b === 'none' ? 'None' : `${b}-bit`}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SegmentedControl
+                        options={QUANT_BITS.map(b => ({ value: b, label: b === 'none' ? 'None' : `${b}-bit` }))}
+                        value={config.quantization_bit}
+                        onChange={(v) => updateConfig('quantization_bit', v)}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -435,16 +476,11 @@ export function TrainPage() {
                         <label className="text-sm font-medium">Quantization Method</label>
                         <InfoTooltip content="Technique for model compression (e.g., 4-bit, 8-bit)." impact="Reduces VRAM usage significantly with minimal quality loss." />
                       </div>
-                      <Select value={config.quantization_method} onValueChange={(v) => updateConfig('quantization_method', v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {QUANT_METHODS.map(m => (
-                            <SelectItem key={m} value={m}>{m.toUpperCase()}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SegmentedControl
+                        options={QUANT_METHODS.map(m => ({ value: m, label: m.toUpperCase() }))}
+                        value={config.quantization_method}
+                        onChange={(v) => updateConfig('quantization_method', v)}
+                      />
                     </div>
                   </div>
 
@@ -454,16 +490,11 @@ export function TrainPage() {
                         <label className="text-sm font-medium">Booster</label>
                         <InfoTooltip content="Acceleration backend like FlashAttention or Unsloth." impact="Speeds up training and reduces memory overhead on supported GPUs." />
                       </div>
-                      <Select value={config.booster} onValueChange={(v) => updateConfig('booster', v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {BOOSTERS.map(b => (
-                            <SelectItem key={b} value={b}>{b}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SegmentedControl
+                        options={BOOSTERS.map(b => ({ value: b, label: b }))}
+                        value={config.booster}
+                        onChange={(v) => updateConfig('booster', v)}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -471,16 +502,11 @@ export function TrainPage() {
                         <label className="text-sm font-medium">RoPE Scaling</label>
                         <InfoTooltip content="Technique to expand the model's effective context window." impact="Enables processing of much longer text sequences during training." />
                       </div>
-                      <Select value={config.rope_scaling} onValueChange={(v) => updateConfig('rope_scaling', v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ROPE_SCALING.map(r => (
-                            <SelectItem key={r} value={r}>{r === 'none' ? 'None' : r}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SegmentedControl
+                        options={ROPE_SCALING.map(r => ({ value: r, label: r === 'none' ? 'None' : r }))}
+                        value={config.rope_scaling}
+                        onChange={(v) => updateConfig('rope_scaling', v)}
+                      />
                     </div>
                   </div>
 
@@ -512,7 +538,7 @@ export function TrainPage() {
                 <CardDescription>Training hyperparameters</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <label className="text-sm font-medium">Learning Rate: <span className="text-primary tabular-nums">{config.learning_rate.toExponential()}</span></label>
@@ -619,34 +645,26 @@ export function TrainPage() {
                     <label className="text-sm font-medium">LR Scheduler</label>
                     <InfoTooltip content="Strategy for adjusting the learning rate during training." impact="'Cosine' is generally recommended for smooth, efficient convergence." />
                   </div>
-                  <Select value={config.lr_scheduler_type} onValueChange={(v) => updateConfig('lr_scheduler_type', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LR_SCHEDULERS.map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SegmentedControl
+                    options={LR_SCHEDULERS.map(s => ({ value: s, label: s }))}
+                    value={config.lr_scheduler_type}
+                    onChange={(v) => updateConfig('lr_scheduler_type', v)}
+                    columns={3}
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Compute Type</label>
-                  <Select value={config.bf16 ? 'bf16' : config.fp16 ? 'fp16' : 'fp32'} onValueChange={(v) => {
-                    updateConfig('bf16', v === 'bf16')
-                    updateConfig('fp16', v === 'fp16')
-                    updateConfig('pure_bf16', v === 'pure_bf16')
-                  }}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COMPUTE_TYPES.map(c => (
-                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SegmentedControl
+                    options={COMPUTE_TYPES}
+                    value={config.bf16 ? 'bf16' : config.fp16 ? 'fp16' : config.pure_bf16 ? 'pure_bf16' : 'fp32'}
+                    onChange={(v) => {
+                      updateConfig('bf16', v === 'bf16')
+                      updateConfig('fp16', v === 'fp16')
+                      updateConfig('pure_bf16', v === 'pure_bf16')
+                    }}
+                    columns={4}
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -659,7 +677,7 @@ export function TrainPage() {
                 <CardDescription>Low-Rank Adaptation parameters</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <label className="text-sm font-medium">LoRA Rank: <span className="text-primary tabular-nums">{config.lora_rank}</span></label>
@@ -722,7 +740,10 @@ export function TrainPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Additional Target Modules</label>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">Additional Target Modules</label>
+                    <InfoTooltip content="Extra layers beyond the base LoRA targets to be trained." impact="Allows for more comprehensive fine-tuning if the base targets are insufficient." />
+                  </div>
                   <Input 
                     value={config.additional_target} 
                     onChange={(e) => updateConfig('additional_target', e.target.value)}
@@ -730,7 +751,7 @@ export function TrainPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { key: 'use_rslora', label: 'RSLoRA', tip: 'Rank-Stabilized LoRA for better stability.' },
                     { key: 'use_dora', label: 'DoRA', tip: 'Weight-Decomposed LoRA for better quality.' },
@@ -752,235 +773,302 @@ export function TrainPage() {
               </CardContent>
             </Card>
 
-            <Accordion type="multiple" className="mt-4">
-              <AccordionItem value="freeze">
-                <AccordionTrigger>Freeze Settings</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Freeze Trainable Layers: <span className="text-primary tabular-nums">{config.freeze_trainable_layers}</span></label>
-                      <Slider 
-                        value={[config.freeze_trainable_layers]} 
-                        min={-128} max={128} step={1}
-                        onValueChange={([v]) => updateConfig('freeze_trainable_layers', v)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Freeze Trainable Modules</label>
-                      <Input 
-                        value={config.freeze_trainable_modules} 
-                        onChange={(e) => updateConfig('freeze_trainable_modules', e.target.value)}
-                        placeholder="all"
-                      />
-                    </div>
+              <div className="w-full flex flex-col gap-4">
+                {/* Responsive Sub-Tabs Grid */}
+                <div>
+                  <div className="grid grid-cols-2 xs:grid-cols-3 md:flex md:w-max gap-1 p-1 bg-muted/20 border border-primary/5 rounded-xl">
+                    {[
+                      { id: 'freeze', label: 'Freeze', icon: Info },
+                      { id: 'rlhf', label: 'RLHF', icon: Heart },
+                      { id: 'galore', label: 'GaLorE', icon: Sparkles },
+                      { id: 'apollo', label: 'Apollo', icon: Cpu },
+                      { id: 'badam', label: 'BAdam', icon: Box },
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveSubTab(tab.id as any)}
+                        className={cn(
+                          "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all",
+                          activeSubTab === tab.id 
+                            ? "bg-primary/20 text-primary shadow-neon-sm" 
+                            : "text-muted-foreground hover:bg-muted/50"
+                        )}
+                      >
+                        <tab.icon className="w-3.5 h-3.5" />
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
-                </AccordionContent>
-              </AccordionItem>
+                </div>
 
-              <AccordionItem value="rlhf">
-                <AccordionTrigger>RLHF Settings (DPO/PPO/KTO)</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <label className="text-sm font-medium">Preference Beta: <span className="text-primary tabular-nums">{config.pref_beta}</span></label>
-                        <InfoTooltip content="Weight of the KL divergence penalty (common: 0.1)." impact="Prevents the model from diverging too far from the base behavior during RLHF." />
-                      </div>
-                      <Slider 
-                        value={[config.pref_beta * 100]} 
-                        min={0} max={100} step={1}
-                        onValueChange={([v]) => updateConfig('pref_beta', v / 100)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <label className="text-sm font-medium">Preference Loss</label>
-                        <InfoTooltip content="Loss function for alignment (Sigmoid, IPO, KTO)." impact="Determines how the model learns from preferred vs rejected samples." />
-                      </div>
-                      <Select value={config.pref_loss} onValueChange={(v) => updateConfig('pref_loss', v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PREF_LOSSES.map(l => (
-                            <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Preference FTX: <span className="text-primary tabular-nums">{config.pref_ftx}</span></label>
-                      <Slider 
-                        value={[config.pref_ftx]} 
-                        min={0} max={10} step={0.1}
-                        onValueChange={([v]) => updateConfig('pref_ftx', v)}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                        <span className="text-sm">PPO Score Norm</span>
-                        <Switch
-                          checked={config.ppo_score_norm}
-                          onCheckedChange={(checked) => updateConfig('ppo_score_norm', checked)}
+              {/* Sub-Tab Content */}
+              <Card className="flex-1 glass-card border-primary/10 w-full min-h-[450px]">
+                <CardContent className="pt-6">
+                  {activeSubTab === 'freeze' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <label className="text-sm font-medium">Freeze Trainable Layers: <span className="text-primary tabular-nums">{config.freeze_trainable_layers}</span></label>
+                          <InfoTooltip content="Number of initial layers to keep frozen (un-trainable)." impact="Reduces memory usage and prevents catastrophic forgetting by locking base knowledge." />
+                        </div>
+                        <Slider 
+                          value={[config.freeze_trainable_layers]} 
+                          min={-128} max={128} step={1}
+                          onValueChange={([v]) => updateConfig('freeze_trainable_layers', v)}
                         />
                       </div>
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                        <span className="text-sm">PPO Whiten Rewards</span>
-                        <Switch
-                          checked={config.ppo_whiten_rewards}
-                          onCheckedChange={(checked) => updateConfig('ppo_whiten_rewards', checked)}
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <label className="text-sm font-medium">Freeze Trainable Modules</label>
+                          <InfoTooltip content="Specific layer names or modules to exclude from training." impact="Highly-specific control over which parts of the model remain static." />
+                        </div>
+                        <Input 
+                          value={config.freeze_trainable_modules} 
+                          onChange={(e) => updateConfig('freeze_trainable_modules', e.target.value)}
+                          placeholder="all"
                         />
                       </div>
                     </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
+                  )}
 
-              <AccordionItem value="galore">
-                <AccordionTrigger>GaLorE Settings</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <div className="flex items-center">
-                        <span className="text-sm font-medium">Enable GaLorE</span>
-                        <InfoTooltip content="Gradient Low-Rank Projection optimization." impact="Enables full-parameter training on consumer GPUs with high VRAM efficiency." />
+                  {activeSubTab === 'rlhf' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <label className="text-sm font-medium">Preference Beta: <span className="text-primary tabular-nums">{config.pref_beta.toFixed(2)}</span></label>
+                          <InfoTooltip content="Weight of the KL divergence penalty (common: 0.1)." impact="Prevents the model from diverging too far from the base behavior during RLHF." />
+                        </div>
+                        <Slider 
+                          value={[config.pref_beta * 100]} 
+                          min={0} max={100} step={1}
+                          onValueChange={([v]) => updateConfig('pref_beta', v / 100)}
+                        />
                       </div>
-                      <Switch
-                        checked={config.use_galore}
-                        onCheckedChange={(checked) => updateConfig('use_galore', checked)}
-                      />
-                    </div>
-                    {config.use_galore && (
-                      <>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">GaLorE Rank: <span className="text-primary tabular-nums">{config.galore_rank}</span></label>
-                          <Slider 
-                            value={[config.galore_rank]} 
-                            min={1} max={256} step={1}
-                            onValueChange={([v]) => updateConfig('galore_rank', v)}
-                          />
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <label className="text-sm font-medium">Preference Loss</label>
+                          <InfoTooltip content="Loss function for alignment (Sigmoid, IPO, KTO)." impact="Determines how the model learns from preferred vs rejected samples." />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Update Interval: <span className="text-primary tabular-nums">{config.galore_update_interval}</span></label>
-                          <Slider 
-                            value={[config.galore_update_interval]} 
-                            min={1} max={1000} step={10}
-                            onValueChange={([v]) => updateConfig('galore_update_interval', v)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Scale: <span className="text-primary tabular-nums">{config.galore_scale}</span></label>
-                          <Slider 
-                            value={[config.galore_scale]} 
-                            min={0} max={100} step={0.1}
-                            onValueChange={([v]) => updateConfig('galore_scale', v)}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="apollo">
-                <AccordionTrigger>Apollo Settings</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <div className="flex items-center">
-                        <span className="text-sm font-medium">Enable Apollo</span>
-                        <InfoTooltip content="Advanced projection optimization for extreme efficiency." impact="Further reduces training memory footprint compared to standard Adam/LoRA." />
+                        <Select value={config.pref_loss} onValueChange={(v) => updateConfig('pref_loss', v)}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PREF_LOSSES.map(l => (
+                              <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Switch
-                        checked={config.use_apollo}
-                        onCheckedChange={(checked) => updateConfig('use_apollo', checked)}
-                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center">
+                          <label className="text-sm font-medium">Preference FTX: <span className="text-primary tabular-nums">{config.pref_ftx}</span></label>
+                          <InfoTooltip content="Coefficient for the supervised fine-tuning loss during DPO/RLHF." impact="Balances traditional SFT learning with preference alignment for better stability." />
+                        </div>
+                        <Slider 
+                          value={[config.pref_ftx]} 
+                          min={0} max={10} step={0.1}
+                          onValueChange={([v]) => updateConfig('pref_ftx', v)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                          <div className="flex items-center">
+                            <span className="text-sm">PPO Score Norm</span>
+                            <InfoTooltip content="Normalizes rewards to stabilize the PPO training objective." impact="Prevents score fluctuations from causing unstable weight updates." />
+                          </div>
+                          <Switch
+                            checked={config.ppo_score_norm}
+                            onCheckedChange={(checked) => updateConfig('ppo_score_norm', checked)}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                          <div className="flex items-center">
+                            <span className="text-sm">PPO Whiten Rewards</span>
+                            <InfoTooltip content="Standardizes rewards to zero mean and unit variance." impact="Helps the PPO algorithm converge faster by providing consistent reward scales." />
+                          </div>
+                          <Switch
+                            checked={config.ppo_whiten_rewards}
+                            onCheckedChange={(checked) => updateConfig('ppo_whiten_rewards', checked)}
+                          />
+                        </div>
+                      </div>
                     </div>
-                    {config.use_apollo && (
-                      <>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Apollo Rank: <span className="text-primary tabular-nums">{config.apollo_rank}</span></label>
-                          <Slider 
-                            value={[config.apollo_rank]} 
-                            min={1} max={256} step={1}
-                            onValueChange={([v]) => updateConfig('apollo_rank', v)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Scale: <span className="text-primary tabular-nums">{config.apollo_scale}</span></label>
-                          <Slider 
-                            value={[config.apollo_scale]} 
-                            min={0} max={100} step={0.1}
-                            onValueChange={([v]) => updateConfig('apollo_scale', v)}
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
+                  )}
 
-              <AccordionItem value="badam">
-                <AccordionTrigger>BAdam Settings</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <span className="text-sm font-medium">Enable BAdam</span>
-                      <Switch
-                        checked={config.use_badam}
-                        onCheckedChange={(checked) => updateConfig('use_badam', checked)}
-                      />
+                  {activeSubTab === 'galore' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                        <div className="flex items-center">
+                          <span className="text-sm font-medium">Enable GaLorE</span>
+                          <InfoTooltip content="Gradient Low-Rank Projection optimization." impact="Enables full-parameter training on consumer GPUs with high VRAM efficiency." />
+                        </div>
+                        <Switch
+                          checked={config.use_galore}
+                          onCheckedChange={(checked) => updateConfig('use_galore', checked)}
+                        />
+                      </div>
+                      {config.use_galore && (
+                        <div className="space-y-6 pt-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <label className="text-sm font-medium">GaLorE Rank: <span className="text-primary tabular-nums">{config.galore_rank}</span></label>
+                              <InfoTooltip content="Rank of the projection matrix for GaLorE gradients." impact="Higher rank improves learning accuracy but consumes more VRAM." />
+                            </div>
+                            <Slider 
+                              value={[config.galore_rank]} 
+                              min={1} max={256} step={1}
+                              onValueChange={([v]) => updateConfig('galore_rank', v)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <label className="text-sm font-medium">Update Interval: <span className="text-primary tabular-nums">{config.galore_update_interval}</span></label>
+                              <InfoTooltip content="Steps between re-projecting the GaLorE gradients." impact="Frequent updates keep the gradient estimate fresh but add computational overhead." />
+                            </div>
+                            <Slider 
+                              value={[config.galore_update_interval]} 
+                              min={1} max={1000} step={10}
+                              onValueChange={([v]) => updateConfig('galore_update_interval', v)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <label className="text-sm font-medium">Scale: <span className="text-primary tabular-nums">{config.galore_scale}</span></label>
+                              <InfoTooltip content="Scaling factor for the projected gradients in GaLorE." impact="Adjusts the magnitude of weight updates; tune if training is unstable." />
+                            </div>
+                            <Slider 
+                              value={[config.galore_scale]} 
+                              min={0} max={100} step={0.1}
+                              onValueChange={([v]) => updateConfig('galore_scale', v)}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {config.use_badam && (
-                      <>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Mode</label>
-                          <Select value={config.badam_mode} onValueChange={(v) => updateConfig('badam_mode', v)}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="layer">Layer</SelectItem>
-                              <SelectItem value="ratio">Ratio</SelectItem>
-                            </SelectContent>
-                          </Select>
+                  )}
+
+                  {activeSubTab === 'apollo' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                        <div className="flex items-center">
+                          <span className="text-sm font-medium">Enable Apollo</span>
+                          <InfoTooltip content="Advanced projection optimization for extreme efficiency." impact="Further reduces training memory footprint compared to standard Adam/LoRA." />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Switch Mode</label>
-                          <Select value={config.badam_switch_mode} onValueChange={(v) => updateConfig('badam_switch_mode', v)}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="ascending">Ascending</SelectItem>
-                              <SelectItem value="descending">Descending</SelectItem>
-                              <SelectItem value="random">Random</SelectItem>
-                              <SelectItem value="fixed">Fixed</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <Switch
+                          checked={config.use_apollo}
+                          onCheckedChange={(checked) => updateConfig('use_apollo', checked)}
+                        />
+                      </div>
+                      {config.use_apollo && (
+                        <div className="space-y-6 pt-2">
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <label className="text-sm font-medium">Apollo Rank: <span className="text-primary tabular-nums">{config.apollo_rank}</span></label>
+                              <InfoTooltip content="Compression rank for the Apollo optimizer gradients." impact="Balancing rank is key to maintaining convergence while saving VRAM." />
+                            </div>
+                            <Slider 
+                              value={[config.apollo_rank]} 
+                              min={1} max={256} step={1}
+                              onValueChange={([v]) => updateConfig('apollo_rank', v)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <label className="text-sm font-medium">Scale: <span className="text-primary tabular-nums">{config.apollo_scale}</span></label>
+                              <InfoTooltip content="Gradient scaling factor for Apollo's weight updates." impact="Ensures stability during high-efficiency training sessions." />
+                            </div>
+                            <Slider 
+                              value={[config.apollo_scale]} 
+                              min={0} max={100} step={0.1}
+                              onValueChange={([v]) => updateConfig('apollo_scale', v)}
+                            />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Switch Interval: <span className="text-primary tabular-nums">{config.badam_switch_interval}</span></label>
-                          <Slider 
-                            value={[config.badam_switch_interval]} 
-                            min={1} max={500} step={1}
-                            onValueChange={([v]) => updateConfig('badam_switch_interval', v)}
-                          />
+                      )}
+                    </div>
+                  )}
+
+                  {activeSubTab === 'badam' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                        <div className="flex items-center">
+                          <span className="text-sm font-medium">Enable BAdam</span>
+                          <InfoTooltip content="Block-wise Adam optimizer for memory-efficient training." impact="Updates only a fraction of weights at a time, drastically cutting memory use." />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Update Ratio: <span className="text-primary tabular-nums">{config.badam_update_ratio.toFixed(2)}</span></label>
-                          <Slider 
-                            value={[config.badam_update_ratio * 100]} 
-                            min={0} max={50} step={1}
-                            onValueChange={([v]) => updateConfig('badam_update_ratio', v / 100)}
-                          />
+                        <Switch
+                          checked={config.use_badam}
+                          onCheckedChange={(checked) => updateConfig('use_badam', checked)}
+                        />
+                      </div>
+                      {config.use_badam && (
+                        <div className="space-y-6 pt-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <div className="flex items-center">
+                                <label className="text-sm font-medium">Mode</label>
+                                <InfoTooltip content="Determines if blocks are selected by layer or by a fixed ratio." impact="Layer mode is usually more intuitive for standard LLM architectures." />
+                              </div>
+                              <SegmentedControl
+                                options={[
+                                  { value: 'layer', label: 'Layer' },
+                                  { value: 'ratio', label: 'Ratio' }
+                                ]}
+                                value={config.badam_mode}
+                                onChange={(v) => updateConfig('badam_mode', v)}
+                                columns={2}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center">
+                                <label className="text-sm font-medium">Switch Mode</label>
+                                <InfoTooltip content="Strategy for cycling through different blocks of weights." impact="Ascending/Descending cycles through layers; Random ensures even coverage." />
+                              </div>
+                              <SegmentedControl
+                                options={[
+                                  { value: 'ascending', label: 'Ascending' },
+                                  { value: 'descending', label: 'Descending' },
+                                  { value: 'random', label: 'Random' },
+                                  { value: 'fixed', label: 'Fixed' }
+                                ]}
+                                value={config.badam_switch_mode}
+                                onChange={(v) => updateConfig('badam_switch_mode', v)}
+                                columns={4}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <label className="text-sm font-medium">Switch Interval: <span className="text-primary tabular-nums">{config.badam_switch_interval}</span></label>
+                              <InfoTooltip content="Steps to train before switching to the next block of weights." impact="Larger intervals allow deeper learning per block but slow down overall coverage." />
+                            </div>
+                            <Slider 
+                              value={[config.badam_switch_interval]} 
+                              min={1} max={500} step={1}
+                              onValueChange={([v]) => updateConfig('badam_switch_interval', v)}
+                            />
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center">
+                              <label className="text-sm font-medium">Update Ratio: <span className="text-primary tabular-nums">{config.badam_update_ratio.toFixed(2)}</span></label>
+                              <InfoTooltip content="Percentage of weights to update in each BAdam step." impact="Directly controls the VRAM vs. Convergence speed trade-off." />
+                            </div>
+                            <Slider 
+                              value={[config.badam_update_ratio * 100]} 
+                              min={0} max={50} step={1}
+                              onValueChange={([v]) => updateConfig('badam_update_ratio', v / 100)}
+                            />
+                          </div>
                         </div>
-                      </>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="advanced">
@@ -991,7 +1079,10 @@ export function TrainPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">NEFTune Alpha: <span className="text-primary tabular-nums">{config.neftune_alpha}</span></label>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">NEFTune Alpha: <span className="text-primary tabular-nums">{config.neftune_alpha}</span></label>
+                    <InfoTooltip content="Noise factor for NEFTune (Non-Parametric Fine-Tuning)." impact="Adds noise to embeddings during training to improve model generalization." />
+                  </div>
                   <Slider 
                     value={[config.neftune_alpha]} 
                     min={0} max={10} step={0.1}
@@ -1001,12 +1092,15 @@ export function TrainPage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {[
-                    { key: 'packing', label: 'Sequence Packing' },
-                    { key: 'train_on_prompt', label: 'Train on Prompt' },
-                    { key: 'mask_history', label: 'Mask History' },
+                    { key: 'packing', label: 'Sequence Packing', tip: 'Combines multiple short examples into a single sequence.' },
+                    { key: 'train_on_prompt', label: 'Train on Prompt', tip: 'Includes the prompt in the loss calculation during training.' },
+                    { key: 'mask_history', label: 'Mask History', tip: 'Excludes conversation history from being trained on.' },
                   ].map(item => (
                     <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                      <span className="text-sm">{item.label}</span>
+                      <div className="flex items-center">
+                        <span className="text-sm">{item.label}</span>
+                        <InfoTooltip content={item.tip} impact="Optimizes how the dataset is processed and calculated for loss." />
+                      </div>
                       <Switch
                         checked={config[item.key as keyof TrainingConfig] as boolean}
                         onCheckedChange={(checked) => updateConfig(item.key as keyof TrainingConfig, checked)}
@@ -1016,22 +1110,24 @@ export function TrainPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Report To</label>
-                  <Select value={config.report_to} onValueChange={(v) => updateConfig('report_to', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {REPORT_TO.map(r => (
-                        <SelectItem key={r} value={r}>{r === 'none' ? 'None' : r}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">Report To</label>
+                    <InfoTooltip content="External platform(s) for logging training metrics." impact="Integrations like WandB or TensorBoard are critical for remote monitoring." />
+                  </div>
+                  <SegmentedControl
+                    options={REPORT_TO.map(r => ({ value: r, label: r === 'none' ? 'None' : r }))}
+                    value={config.report_to}
+                    onChange={(v) => updateConfig('report_to', v)}
+                    columns={3}
+                  />
                 </div>
 
                 {config.report_to !== 'none' && (
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Project Name</label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Project Name</label>
+                      <InfoTooltip content="The name of the project repository on the logging platform." impact="Helps organize your runs and compare versions on WandB/Neptune." />
+                    </div>
                     <Input 
                       value={config.project_name} 
                       onChange={(e) => updateConfig('project_name', e.target.value)}
@@ -1041,22 +1137,24 @@ export function TrainPage() {
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">DeepSpeed Stage</label>
-                  <Select value={config.ds_stage} onValueChange={(v) => updateConfig('ds_stage', v)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DEEPSPEED_STAGES.map(s => (
-                        <SelectItem key={s} value={s}>{s === 'none' ? 'None' : `Stage ${s}`}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">DeepSpeed Stage</label>
+                    <InfoTooltip content="Optimization stage for DeepSpeed's ZeRO (Zero Redundancy Optimizer)." impact="Stages 2 and 3 drastically reduce VRAM by partitioning model states across GPUs." />
+                  </div>
+                  <SegmentedControl
+                    options={DEEPSPEED_STAGES.map(s => ({ value: s, label: s === 'none' ? 'None' : `Stage ${s}` }))}
+                    value={config.ds_stage}
+                    onChange={(v) => updateConfig('ds_stage', v)}
+                    columns={3}
+                  />
                 </div>
 
                 {config.ds_stage !== 'none' && (
                   <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
-                    <span className="text-sm">DeepSpeed Offload</span>
+                    <div className="flex items-center">
+                      <span className="text-sm">DeepSpeed Offload</span>
+                      <InfoTooltip content="Offloads model states to CPU RAM or Disk if VRAM is full." impact="Makes it possible to train massive models on single GPUs, albeit slower." />
+                    </div>
                     <Switch
                       checked={config.ds_offload}
                       onCheckedChange={(checked) => updateConfig('ds_offload', checked)}
@@ -1065,7 +1163,10 @@ export function TrainPage() {
                 )}
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Extra Arguments (JSON)</label>
+                  <div className="flex items-center">
+                    <label className="text-sm font-medium">Extra Arguments (JSON)</label>
+                    <InfoTooltip content="Manual JSON overrides for the training engine." impact="Provides direct access to niche API parameters not exposed in the UI." />
+                  </div>
                   <Input 
                     value={config.extra_args} 
                     onChange={(e) => updateConfig('extra_args', e.target.value)}
@@ -1085,7 +1186,10 @@ export function TrainPage() {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Logging Steps: <span className="text-primary tabular-nums">{config.logging_steps}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Logging Steps: <span className="text-primary tabular-nums">{config.logging_steps}</span></label>
+                      <InfoTooltip content="Interval for updating loss and metric charts." impact="Frequent logging gives a smoother chart but can slightly slow down training." />
+                    </div>
                     <Slider 
                       value={[config.logging_steps]} 
                       min={1} max={100} step={1}
@@ -1094,7 +1198,10 @@ export function TrainPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Save Steps: <span className="text-primary tabular-nums">{config.save_steps}</span></label>
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Save Steps: <span className="text-primary tabular-nums">{config.save_steps}</span></label>
+                      <InfoTooltip content="Interval between saving model checkpoints to disk." impact="Crucial for resuming training if the process is interrupted." />
+                    </div>
                     <Slider 
                       value={[config.save_steps]} 
                       min={10} max={1000} step={10}
@@ -1118,30 +1225,48 @@ export function TrainPage() {
       </Tabs>
 
       {/* Actions Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+      <Card className="mt-auto border-t border-primary/20 bg-card/30">
+        <CardHeader className="pb-3 px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <CardTitle className="text-base flex items-center gap-2">
               <Rocket className="w-4 h-4 text-primary" /> Actions
             </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handlePreview}>
-                <Eye className="w-4 h-4 mr-1" /> Preview
-              </Button>
-              <Button variant="outline" size="sm">
-                <FolderOpen className="w-4 h-4 mr-1" /> Load
-              </Button>
-              <Button variant="outline" size="sm">
-                <Save className="w-4 h-4 mr-1" /> Save
-              </Button>
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-1 group">
+                <Button variant="outline" size="sm" onClick={handlePreview} className="flex-1 sm:flex-none">
+                  <Eye className="w-4 h-4 mr-1" /> <span className="sm:inline">Preview</span>
+                </Button>
+                <InfoTooltip content="Shows the raw command line that will be executed." impact="Helps power-users verify the final argument string before starting." />
+              </div>
+              
+              <div className="flex items-center gap-1 group">
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  <FolderOpen className="w-4 h-4 mr-1" /> <span className="sm:inline">Load</span>
+                </Button>
+                <InfoTooltip content="Load a previously saved training configuration." impact="Saves time by restoring complex hyperparameter sets." />
+              </div>
+
+              <div className="flex items-center gap-1 group">
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
+                  <Save className="w-4 h-4 mr-1" /> <span className="sm:inline">Save</span>
+                </Button>
+                <InfoTooltip content="Save the current configuration to a JSON file." impact="Persistent storage for your experimental setups." />
+              </div>
+
               {isRunning ? (
-                <Button variant="destructive" size="sm" onClick={handleStop}>
-                  <Square className="w-4 h-4 mr-1" /> Stop
-                </Button>
+                <div className="flex items-center gap-1 group w-full sm:w-auto mt-2 sm:mt-0">
+                  <Button variant="destructive" size="sm" onClick={handleStop} className="w-full sm:w-auto">
+                    <Square className="w-4 h-4 mr-1" /> Stop Training
+                  </Button>
+                  <InfoTooltip content="Terminates the current training process safely." impact="Stops resource consumption; partial weights should still be available in the output dir." />
+                </div>
               ) : (
-                <Button size="sm" onClick={handleStart}>
-                  <Play className="w-4 h-4 mr-1" /> Start Training
-                </Button>
+                <div className="flex items-center gap-1 group w-full sm:w-auto mt-2 sm:mt-0">
+                  <Button size="sm" onClick={handleStart} className="w-full sm:w-auto">
+                    <Play className="w-4 h-4 mr-1" /> Start Training
+                  </Button>
+                  <InfoTooltip content="Initializes the backend engine and starts the training job." impact="Locks resources and begins updating model weights based on your config." />
+                </div>
               )}
             </div>
           </div>
@@ -1156,13 +1281,16 @@ export function TrainPage() {
           {isRunning && (
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
-                <span>Training Progress</span>
+                <div className="flex items-center">
+                  <span>Training Progress</span>
+                  <InfoTooltip content="Real-time completion percentage of the training job." impact="Helps estimate the remaining time and overall resource utilization." />
+                </div>
                 <span className="text-primary font-medium tabular-nums">{progress || 0}%</span>
               </div>
               <Progress value={progress || 0} className="h-2" variant="cyan" />
             </div>
           )}
-          <div className="h-40 overflow-auto p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
+          <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Training logs will appear here...</p>
             ) : (

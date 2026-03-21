@@ -118,9 +118,9 @@ export function ChatPage() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="min-h-full flex flex-col gap-4">
       {/* Settings Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -367,23 +367,25 @@ export function ChatPage() {
       </div>
 
       {/* Chat Area */}
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      <Card className="flex-1 flex flex-col">
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Bot className="w-5 h-5 text-primary" /> Chat Interface
               </CardTitle>
-              <CardDescription>Test your model with natural language</CardDescription>
+              <CardDescription className="hidden sm:block">Test your model with natural language</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              {isModelLoaded ? (
-                <Badge className="bg-neon-green text-white">● Model Loaded</Badge>
-              ) : (
-                <Badge variant="secondary">No Model Loaded</Badge>
-              )}
-              <div className="flex items-center gap-1.5">
-                <Button variant="outline" size="sm" onClick={clearChat} disabled={messages.length === 0} className="h-8">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex-1 sm:flex-none">
+                {isModelLoaded ? (
+                  <Badge className="bg-neon-green text-white w-full sm:w-auto justify-center">● Loaded</Badge>
+                ) : (
+                  <Badge variant="secondary" className="w-full sm:w-auto justify-center">Unloaded</Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-1 sm:flex-none">
+                <Button variant="outline" size="sm" onClick={clearChat} disabled={messages.length === 0} className="h-8 flex-1 sm:h-8">
                   <Trash2 className="w-3.5 h-3.5 mr-1" /> Clear
                 </Button>
                 <InfoTooltip content="Wipes the current conversation history." impact="Resets the context window for the model, starting a fresh session." />
@@ -393,7 +395,7 @@ export function ChatPage() {
         </CardHeader>
 
         <CardContent className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-auto space-y-4 mb-4 scrollbar-thin">
+          <div className="flex-1 space-y-4 mb-4">
             {messages.length === 0 && (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 <div className="text-center">
@@ -419,12 +421,12 @@ export function ChatPage() {
                     <Bot className="w-4 h-4 text-primary" />
                   )}
                 </div>
-                <div className={`max-w-[70%] rounded-xl px-4 py-2.5 ${
+                <div className={`max-w-[85%] md:max-w-[70%] rounded-xl px-4 py-2.5 ${
                   message.role === 'user' ? 'message-user' : 
                   message.role === 'system' ? 'message-system' : 
                   'message-assistant'
                 }`}>
-                  <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                  <p className="whitespace-pre-wrap text-[13px] md:text-sm">{message.content}</p>
                 </div>
               </div>
             ))}
@@ -446,31 +448,35 @@ export function ChatPage() {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-border/50 pt-4">
-            <div className="flex gap-2">
-              <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/50">
-                <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
-                  <Image className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
-                  <Video className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
-                  <Mic className="w-4 h-4" />
-                </Button>
+          <div className="border-t border-border/50 pt-4 pb-4 px-1 sm:px-0">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex items-center justify-between sm:justify-start gap-1 bg-muted/30 p-1 rounded-lg border border-border/50 w-full sm:w-auto">
+                <div className="flex gap-1">
+                  <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
+                    <Image className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
+                    <Video className="w-4 h-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" disabled={!isModelLoaded} className="h-8 w-8">
+                    <Mic className="w-4 h-4" />
+                  </Button>
+                </div>
                 <InfoTooltip content="Multimedia input tools (Image, Video, Audio)." impact="Allows interacting with multi-modal LLMs that support visual/audio processing." />
               </div>
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Type your message..."
-                className="flex-1"
-                disabled={!isModelLoaded || isLoading}
-              />
-              <Button onClick={handleSend} disabled={!isModelLoaded || isLoading || !input.trim()} className="flex-shrink-0">
-                <Send className="w-4 h-4" />
-              </Button>
+              <div className="flex flex-1 gap-2">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                  placeholder="Type your message..."
+                  className="flex-1 text-sm h-10"
+                  disabled={!isModelLoaded || isLoading}
+                />
+                <Button onClick={handleSend} disabled={!isModelLoaded || isLoading || !input.trim()} className="flex-shrink-0 h-10 w-12 sm:w-auto">
+                  <Send className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Send</span>
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>

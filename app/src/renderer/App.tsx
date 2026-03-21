@@ -10,6 +10,7 @@ import { EvaluatePage } from './pages/EvaluatePage'
 import { ExportPage } from './pages/ExportPage'
 import { MonitorPage } from './pages/MonitorPage'
 import { SetupPage } from './pages/SetupPage'
+import { AboutPage } from './pages/AboutPage'
 
 function App() {
   useTheme()
@@ -63,6 +64,7 @@ function App() {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/export" element={<ExportPage />} />
           <Route path="/monitor" element={<MonitorPage />} />
+          <Route path="/about" element={<AboutPage />} />
         </Routes>
       </Layout>
     </>
