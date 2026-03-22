@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { api, Model } from '@/hooks/useApi'
+import { api, Model, LocalModel } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
 import { Send, Bot, User, Trash2, Image, Video, Mic, Settings, Play, Square, ArrowRight, RefreshCw } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
@@ -67,6 +67,12 @@ export function ChatPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const { data: localModels = [] } = useQuery<LocalModel[]>({
+    queryKey: ['models', 'local'],
+    queryFn: () => api.models.getLocal(),
+    staleTime: 30000,
+  })
+
   const { data: apiTemplates = [], isLoading: loadingTemplates } = useQuery<string[]>({
     queryKey: ['models', 'templates'],
     queryFn: () => api.models.getTemplates(),
@@ -80,7 +86,6 @@ export function ChatPage() {
   }, [apiTemplates, templates.length, setTemplates])
 
   useEffect(() => {
-    console.log('selectedModel changed:', selectedModel)
     if (selectedModel && selectedModel.path) {
       setModelPath(selectedModel.path)
       if (selectedModel.template) {
@@ -90,17 +95,34 @@ export function ChatPage() {
   }, [selectedModel])
 
   const handleModelSelect = (path: string) => {
-    const model = models.find(m => m.path === path)
-    if (model) {
+    // Check hub models first
+    const hubModel = models.find(m => m.path === path)
+    if (hubModel) {
       setModelPath(path)
-      setTemplate(model.template || 'default')
+      setTemplate(hubModel.template || 'default')
       setSelectedModel({
-        name: model.name,
-        path: model.path,
-        template: model.template,
+        name: hubModel.name,
+        path: hubModel.path,
+        template: hubModel.template,
       })
       setLoadError(null)
+      return
     }
+    // Check local downloaded models
+    const localModel = localModels.find(m => m.local_path === path)
+    if (localModel) {
+      setModelPath(path)
+      setSelectedModel({
+        name: localModel.name,
+        path: localModel.local_path,
+        downloaded: true,
+      })
+      setLoadError(null)
+      return
+    }
+    // Custom / unknown path typed directly
+    setModelPath(path)
+    setLoadError(null)
   }
 
   const handleSend = async () => {
@@ -124,7 +146,7 @@ export function ChatPage() {
       if (response.error) {
         setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }])
       } else if (response.content) {
-        setMessages(prev => [...prev, { role: 'assistant', content: response.content }])
+        setMessages(prev => [...prev, { role: 'assistant', content: response.content! }])
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: `Error: Unexpected response format: ${JSON.stringify(response)}` }])
       }
@@ -224,6 +246,21 @@ export function ChatPage() {
                     <SelectValue placeholder="Select a model" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
+                    {/* Local downloaded models appear first */}
+                    {localModels.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Downloaded</div>
+                        {localModels.map(model => (
+                          <SelectItem key={model.local_path} value={model.local_path}>
+                            <div className="flex items-center gap-2">
+                              <Bot className="w-4 h-4 text-primary" />
+                              <span>{model.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">Hub Models</div>
+                      </>
+                    )}
                     {models.slice(0, 100).map(model => (
                       <SelectItem key={model.path} value={model.path}>
                         <div className="flex items-center gap-2">
@@ -232,6 +269,17 @@ export function ChatPage() {
                         </div>
                       </SelectItem>
                     ))}
+                    {/* If current modelPath isn't in either list, show it as a custom entry */}
+                    {modelPath &&
+                      !models.find(m => m.path === modelPath) &&
+                      !localModels.find(m => m.local_path === modelPath) && (
+                        <SelectItem key="__custom__" value={modelPath}>
+                          <div className="flex items-center gap-2">
+                            <Bot className="w-4 h-4" />
+                            <span className="truncate max-w-[200px]">{modelPath}</span>
+                          </div>
+                        </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               )}

@@ -15,14 +15,27 @@ Write-Host ""
 
 $VENV_PATH = "$ROOT\core\.venv"
 
+# Find Python with CUDA support (3.11-3.12)
+$PYTHON_BIN = $null
+$PYTHON312 = "C:\Users\Astrallink\AppData\Local\Programs\Python\Python312\python.exe"
+$PYTHON311 = "C:\Users\Astrallink\AppData\Local\Programs\Python\Python311\python.exe"
+$PYTHON313 = "C:\Users\Astrallink\AppData\Local\Programs\Python\Python313\python.exe"
+
+if (Test-Path $PYTHON312) { $PYTHON_BIN = $PYTHON312 }
+elseif (Test-Path $PYTHON311) { $PYTHON_BIN = $PYTHON311 }
+elseif (Test-Path $PYTHON313) { $PYTHON_BIN = $PYTHON313 }
+else { $PYTHON_BIN = "python" }
+
 # Check Python
 Write-Host "[1/7] Checking Python..." -ForegroundColor Yellow
 try {
-    $pythonVersion = python --version 2>&1
-    if ($pythonVersion -match "Python 3\.(1[1-9]|[2-9][0-9])") {
-        Write-Host "  $pythonVersion" -ForegroundColor Green
+    $pythonVersion = & $PYTHON_BIN --version 2>&1
+    if ($pythonVersion -match "Python 3\.(1[1-2])") {
+        Write-Host "  $pythonVersion (CUDA supported)" -ForegroundColor Green
+    } elseif ($pythonVersion -match "Python 3\.([0-9]+)") {
+        Write-Host "  $pythonVersion (Warning: CUDA may not be available)" -ForegroundColor Yellow
     } else {
-        Write-Host "  ERROR: Python 3.11+ required" -ForegroundColor Red
+        Write-Host "  ERROR: Python 3.11+ required for CUDA support" -ForegroundColor Red
         exit 1
     }
 } catch {
@@ -33,22 +46,16 @@ try {
 # Create virtual environment
 Write-Host "[2/7] Setting up virtual environment..." -ForegroundColor Yellow
 if (-not (Test-Path $VENV_PATH)) {
-    Write-Host "  Creating core\.venv..."
-    python -m venv $VENV_PATH
+    Write-Host "  Creating core\.venv with Python $pythonVersion..."
+    & $PYTHON_BIN -m venv $VENV_PATH
 }
 Write-Host "  OK" -ForegroundColor Green
 
 # Install PyTorch with CUDA first
 Write-Host "[3/7] Installing PyTorch with CUDA..." -ForegroundColor Yellow
 & "$VENV_PATH\Scripts\python" -m pip install --upgrade pip -q
-try {
-    & "$VENV_PATH\Scripts\python" -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
-    Write-Host "  PyTorch with CUDA installed" -ForegroundColor Green
-} catch {
-    Write-Host "  CUDA wheels not available for Python 3.14, installing CPU version..." -ForegroundColor Yellow
-    & "$VENV_PATH\Scripts\python" -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu -q
-}
-Write-Host "  OK" -ForegroundColor Green
+& "$VENV_PATH\Scripts\python" -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
+Write-Host "  PyTorch with CUDA installed" -ForegroundColor Green
 
 # Install LlamaFactory dependencies
 Write-Host "[4/7] Installing LlamaFactory dependencies..." -ForegroundColor Yellow

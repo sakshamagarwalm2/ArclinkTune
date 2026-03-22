@@ -187,6 +187,8 @@ export function ModelsPage() {
             clearInterval(pollInterval)
             setDownloading(null)
             addDownloadedModel(status.local_path || modelPath)
+            queryClient.invalidateQueries({ queryKey: ['models', 'all'] })
+            queryClient.invalidateQueries({ queryKey: ['models', 'local'] })
           } else if (status.status === 'failed' || status.status === 'cancelled' || status.status === 'not_found') {
             clearInterval(pollInterval)
             setDownloading(null)
@@ -216,6 +218,7 @@ export function ModelsPage() {
     try {
       await api.models.deleteLocalModel(localPath)
       queryClient.invalidateQueries({ queryKey: ['models', 'local'] })
+      queryClient.invalidateQueries({ queryKey: ['models', 'all'] })
     } catch (error) {
       console.error('Delete local model failed:', error)
     }
