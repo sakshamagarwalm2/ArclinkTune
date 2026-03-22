@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from pathlib import Path
+import json as _json
 
 from config import get_settings
 
@@ -15,7 +16,41 @@ training_service = TrainingService(settings.core_path, settings.get_venv_python(
 router = APIRouter()
 
 
+# DeepSpeed stage configs (generated on-the-fly)
+_DEEPSPEED_CONFIGS = {
+    "2": {
+        "train_batch_size": "auto",
+        "train_micro_batch_size_per_gpu": "auto",
+        "gradient_accumulation_steps": "auto",
+        "zero_optimization": {
+            "stage": 2,
+            "offload_optimizer": {"device": "none"},
+            "allgather_partitions": True,
+            "allgather_bucket_size": 5e8,
+            "reduce_scatter": True,
+            "reduce_bucket_size": 5e8,
+        },
+    },
+    "3": {
+        "train_batch_size": "auto",
+        "train_micro_batch_size_per_gpu": "auto",
+        "gradient_accumulation_steps": "auto",
+        "zero_optimization": {
+            "stage": 3,
+            "offload_optimizer": {"device": "none"},
+            "offload_param": {"device": "none"},
+            "allgather_partitions": True,
+            "allgather_bucket_size": 5e8,
+            "reduce_scatter": True,
+            "reduce_bucket_size": 5e8,
+            "contiguous_gradients": True,
+        },
+    },
+}
+
+
 class TrainingConfig(BaseModel):
+    # Core settings
     stage: str = "sft"
     model_name_or_path: str = ""
     template: str = "default"
@@ -38,11 +73,19 @@ class TrainingConfig(BaseModel):
     bf16: bool = True
     fp16: bool = False
     pure_bf16: bool = False
+
+    # Quantization
     quantization_bit: Optional[int] = None
     quantization_method: Optional[str] = "bnb"
+
+    # Booster maps to flash_attn / use_unsloth / enable_liger_kernel
     booster: Optional[str] = "auto"
+
+    # Model
     rope_scaling: Optional[str] = None
     resize_vocab: bool = False
+
+    # LoRA
     lora_rank: int = 8
     lora_alpha: int = 16
     lora_dropout: float = 0.05
@@ -50,49 +93,101 @@ class TrainingConfig(BaseModel):
     loraplus_lr_ratio: Optional[float] = None
     use_rslora: bool = False
     use_dora: bool = False
-    use_pissa: bool = False
+    pissa_init: bool = False
     create_new_adapter: bool = False
     additional_target: Optional[str] = None
-    freeze_trainable_layers: int = 16
+
+    # Freeze
+    freeze_trainable_layers: int = 2
     freeze_trainable_modules: str = "all"
+
+    # RLHF
     pref_beta: float = 0.1
     pref_loss: str = "sigmoid"
     pref_ftx: float = 0.0
     ppo_score_norm: bool = False
     ppo_whiten_rewards: bool = False
+
+    # GaLore
     use_galore: bool = False
     galore_rank: int = 16
-    galore_update_interval: int = 64
-    galore_scale: float = 0.25
+    galore_update_interval: int = 200
+    galore_scale: float = 2.0
     galore_target: str = "all"
+
+    # Apollo
     use_apollo: bool = False
     apollo_rank: int = 16
-    apollo_scale: float = 0.25
+    apollo_scale: float = 32.0
     apollo_target: str = "all"
-    apollo_update_interval: int = 64
+    apollo_update_interval: int = 200
+
+    # BAdam
     use_badam: bool = False
     badam_mode: str = "layer"
-    badam_switch_mode: str = "lifetime"
-    badam_switch_interval: int = 100
-    badam_update_ratio: float = 0.4
+    badam_switch_mode: str = "ascending"
+    badam_switch_interval: int = 50
+    badam_update_ratio: float = 0.05
+
+    # Training extras
     neftune_alpha: Optional[float] = None
     packing: bool = False
     train_on_prompt: bool = False
     mask_history: bool = False
     report_to: Optional[str] = "none"
-    project_name: Optional[str] = None
+    project: Optional[str] = None
+
+    # DeepSpeed
     ds_stage: Optional[str] = "none"
     ds_offload: bool = False
-    ddp: bool = False
+
+    # Misc
     batch_size: int = 2
     extra_args: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         result = self.model_dump(exclude_none=True)
+
+        # Ensure output_dir
         if not result.get('output_dir'):
             result['output_dir'] = f"output/train_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        for key in ['batch_size', 'extra_args']:
+
+        # Always set do_train so LlamaFactory actually runs training
+        result['do_train'] = True
+
+        # Remove fields that are not LlamaFactory args
+        for key in ['batch_size', 'extra_args', 'booster', 'ds_stage', 'ds_offload']:
             result.pop(key, None)
+
+        # Map booster to actual LlamaFactory model args
+        booster = self.booster
+        if booster == 'flashattn2':
+            result['flash_attn'] = 'fa2'
+        elif booster == 'unsloth':
+            result['use_unsloth'] = True
+        elif booster == 'liger_kernel':
+            result['enable_liger_kernel'] = True
+        # 'auto' uses default flash attn, no extra flag needed
+
+        # Map ds_stage to deepspeed config path or inline config
+        if self.ds_stage and self.ds_stage != "none":
+            ds_config = _DEEPSPEED_CONFIGS.get(self.ds_stage, _DEEPSPEED_CONFIGS.get("2"))
+            if self.ds_offload:
+                ds_config = _json.loads(_json.dumps(ds_config))  # deep copy
+                ds_config["zero_optimization"]["offload_optimizer"] = {"device": "cpu", "pin_memory": True}
+                if "offload_param" in ds_config["zero_optimization"]:
+                    ds_config["zero_optimization"]["offload_param"] = {"device": "cpu", "pin_memory": True}
+            result['deepspeed'] = ds_config
+
+        # report_to: convert string to list (LlamaFactory expects a list)
+        report_to = result.get('report_to')
+        if isinstance(report_to, str):
+            result['report_to'] = [report_to]
+
+        # Merge extra_args if provided
+        if self.extra_args:
+            result.update(self.extra_args)
+
         return result
 
 
@@ -146,12 +241,19 @@ async def list_runs():
 @router.post("/preview")
 async def preview_training(config: TrainingConfig):
     cfg = config.to_dict()
-    cmd_parts = ["llamafactory-cli train"]
+    cmd_parts = ["llamafactory-cli train <config.yaml>"]
+    
+    # Show a simplified preview (the actual training uses YAML config, not CLI flags)
     for key, value in cfg.items():
+        if key in ('do_train', 'deepspeed'):
+            continue  # skip internal/complex fields
         if value is not None and value != "":
             if isinstance(value, bool):
                 if value:
                     cmd_parts.append(f"--{key}")
+            elif isinstance(value, (dict, list)):
+                import json as _json
+                cmd_parts.append(f"--{key} '{_json.dumps(value)}'")
             else:
                 cmd_parts.append(f"--{key} {value}")
     

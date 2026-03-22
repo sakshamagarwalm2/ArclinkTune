@@ -2,7 +2,6 @@ import subprocess
 import os
 import yaml
 import threading
-import queue
 import signal
 import re
 from pathlib import Path
@@ -19,8 +18,6 @@ class EvaluateProcess:
         self.process = process
         self.status = "running"
         self.progress = 0
-        self.current_task = 0
-        self.total_tasks = 0
         self.results: Dict[str, Any] = {}
         self.log_lines: List[str] = []
         self.start_time = datetime.now()
@@ -38,7 +35,7 @@ class EvaluateProcess:
                     self.process.terminate()
                 else:
                     os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
-            except:
+            except Exception:
                 self.process.kill()
         self.status = "stopped"
 
@@ -53,30 +50,83 @@ class EvaluateService:
         self.src_path = llamafactory_path / "src"
         self.runs: Dict[str, EvaluateProcess] = {}
 
+    def _build_eval_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Build a LlamaFactory-compatible config for evaluation.
+
+        Uses the training pipeline with do_eval=True / do_predict=True,
+        since llamafactory-cli eval is deprecated.
+        """
+        eval_config: Dict[str, Any] = {}
+
+        # Core model settings
+        eval_config['model_name_or_path'] = config.get('model_name_or_path', '')
+        eval_config['template'] = config.get('template', 'default')
+        eval_config['finetuning_type'] = config.get('finetuning_type', 'lora')
+
+        # Adapter checkpoint if provided
+        checkpoint_dir = config.get('checkpoint_dir')
+        if checkpoint_dir:
+            eval_config['adapter_name_or_path'] = checkpoint_dir
+
+        # Dataset settings
+        eval_config['dataset'] = config.get('dataset', '')
+        eval_config['dataset_dir'] = config.get('dataset_dir', 'data')
+        eval_config['cutoff_len'] = config.get('cutoff_len', 1024)
+        eval_config['max_samples'] = config.get('max_samples', 100000)
+
+        # Output
+        eval_config['output_dir'] = config.get('output_dir', f"output/eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+
+        # Evaluation mode flags
+        do_predict = config.get('predict', config.get('do_predict', True))
+        eval_config['do_eval'] = True
+        if do_predict:
+            eval_config['do_predict'] = True
+            eval_config['predict_with_generate'] = True
+
+        # Batch size
+        eval_config['per_device_eval_batch_size'] = config.get('batch_size', 2)
+
+        # Generation settings
+        if do_predict:
+            eval_config['max_new_tokens'] = config.get('max_new_tokens', 512)
+            eval_config['temperature'] = config.get('temperature', 0.95)
+            eval_config['top_p'] = config.get('top_p', 0.7)
+
+        # Logging
+        eval_config['report_to'] = ['none']
+
+        return eval_config
+
     def create_config_file(self, config: Dict[str, Any], output_dir: Path) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
         config_path = output_dir / "eval_config.yaml"
-        
+
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
-        
+
         return config_path
 
     def parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
-        task_pattern = r"Evaluating\|(\d+)/(\d+)"
-        result_pattern = r"'([^']+)':\s*([0-9.]+)"
-        
-        result = {}
-        match_task = re.search(task_pattern, line)
-        match_result = re.search(result_pattern, line)
-        
-        if match_task:
-            result['current_task'] = int(match_task.group(1))
-            result['total_tasks'] = int(match_task.group(2))
-        if match_result:
-            result['metric'] = match_result.group(1)
-            result['value'] = float(match_result.group(2))
-        
+        result: Dict[str, Any] = {}
+
+        # Parse eval metrics like: {'eval_loss': 1.234, 'eval_accuracy': 0.85}
+        metric_pattern = r"'(eval_\w+)':\s*([0-9.]+)"
+        for match in re.finditer(metric_pattern, line):
+            result[match.group(1)] = float(match.group(2))
+
+        # Parse predict metrics like: {'predict_loss': 1.234}
+        predict_pattern = r"'(predict_\w+)':\s*([0-9.]+)"
+        for match in re.finditer(predict_pattern, line):
+            result[match.group(1)] = float(match.group(2))
+
+        # Parse progress: Step 50/100
+        step_pattern = r"Step\s+(\d+)/(\d+)"
+        match = re.search(step_pattern, line)
+        if match:
+            result['_current_step'] = int(match.group(1))
+            result['_total_steps'] = int(match.group(2))
+
         return result if result else None
 
     def _read_logs(self, run_id: str):
@@ -94,14 +144,16 @@ class EvaluateService:
                             run.log_lines.append(line)
                             parsed = self.parse_log_line(line)
                             if parsed:
-                                if 'current_task' in parsed:
-                                    run.current_task = parsed['current_task']
-                                if 'total_tasks' in parsed:
-                                    run.total_tasks = parsed['total_tasks']
-                                    if run.total_tasks > 0:
-                                        run.progress = int(run.current_task / run.total_tasks * 100)
-                                if 'metric' in parsed:
-                                    run.results[parsed['metric']] = parsed['value']
+                                # Update progress from step info
+                                if '_current_step' in parsed and '_total_steps' in parsed:
+                                    total = parsed['_total_steps']
+                                    if total > 0:
+                                        run.progress = int(parsed['_current_step'] / total * 100)
+
+                                # Store actual metrics
+                                for key, value in parsed.items():
+                                    if not key.startswith('_'):
+                                        run.results[key] = value
                     elif run.process.poll() is not None:
                         break
                 else:
@@ -110,24 +162,29 @@ class EvaluateService:
             print(f"Log reader error for {run_id}: {e}")
         finally:
             if run.status == "running":
-                run.status = "completed"
+                exit_code = run.process.poll()
+                run.status = "completed" if exit_code == 0 else "failed"
                 run.progress = 100
 
     def start_evaluation(self, config: Dict[str, Any]) -> str:
         run_id = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         output_dir = Path(config.get('output_dir', f'output/{run_id}'))
-        
-        config_path = self.create_config_file(config, output_dir)
-        
+
+        # Build a training-compatible config with do_eval=True
+        eval_config = self._build_eval_config(config)
+        config_path = self.create_config_file(eval_config, output_dir)
+
+        # Use 'train' command with do_eval=True (not the broken 'eval' command)
         cmd = [
             self.venv_python,
-            '-m', 'llamafactory.cli', 'eval',
+            '-m', 'llamafactory.cli', 'train',
             str(config_path)
         ]
-        
+
         env = os.environ.copy()
         env['PYTHONPATH'] = str(self.src_path)
-        
+        env['DISABLE_VERSION_CHECK'] = '1'
+
         try:
             process = subprocess.Popen(
                 cmd,
@@ -137,13 +194,13 @@ class EvaluateService:
                 cwd=str(self.llamafactory_path),
                 preexec_fn=os.setsid if os.name != 'nt' else None
             )
-            
-            run = EvaluateProcess(run_id, config, process)
+
+            run = EvaluateProcess(run_id, eval_config, process)
             self.runs[run_id] = run
-            
+
             reader = threading.Thread(target=self._read_logs, args=(run_id,), daemon=True)
             reader.start()
-            
+
             return run_id
         except Exception as e:
             raise RuntimeError(f"Failed to start evaluation: {e}")
@@ -152,13 +209,11 @@ class EvaluateService:
         run = self.runs.get(run_id)
         if not run:
             return {"error": "Run not found"}
-        
+
         return {
             "run_id": run_id,
             "status": run.status,
             "progress": run.progress,
-            "current_task": run.current_task,
-            "total_tasks": run.total_tasks,
             "results": run.results,
             "elapsed_seconds": run.get_elapsed_time(),
         }
@@ -173,7 +228,7 @@ class EvaluateService:
         run = self.runs.get(run_id)
         if not run:
             return False
-        
+
         run.stop()
         return True
 
@@ -202,6 +257,7 @@ class EvaluateService:
 
 
 _evaluate_service: Optional[EvaluateService] = None
+
 
 def get_evaluate_service(llamafactory_path: Optional[Path] = None, venv_python: Optional[str] = None) -> EvaluateService:
     global _evaluate_service

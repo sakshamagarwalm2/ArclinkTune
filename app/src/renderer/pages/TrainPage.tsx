@@ -14,10 +14,11 @@ import { api, Model } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
 import { cn } from '@/lib/utils'
 import { useTraining } from '@/hooks/useTraining'
+import { DatasetBrowser } from '@/components/DatasetBrowser'
 import { 
   Play, Square, Save, FolderOpen, Eye, Settings, 
   Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight,
-  Info, Heart, Sparkles, Box, RefreshCw
+  Info, Heart, Sparkles, Box, RefreshCw, Search
 } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 
@@ -92,7 +93,7 @@ interface TrainingConfig {
   loraplus_lr_ratio: number
   use_rslora: boolean
   use_dora: boolean
-  use_pissa: boolean
+  pissa_init: boolean
   create_new_adapter: boolean
   quantization_bit: string
   quantization_method: string
@@ -128,7 +129,7 @@ interface TrainingConfig {
   badam_switch_interval: number
   badam_update_ratio: number
   report_to: string
-  project_name: string
+  project: string
   ds_stage: string
   ds_offload: boolean
   booster: string
@@ -169,7 +170,7 @@ export function TrainPage() {
     loraplus_lr_ratio: 0,
     use_rslora: false,
     use_dora: false,
-    use_pissa: false,
+    pissa_init: false,
     create_new_adapter: false,
     quantization_bit: 'none',
     quantization_method: 'bnb',
@@ -205,13 +206,14 @@ export function TrainPage() {
     badam_switch_interval: 50,
     badam_update_ratio: 0.05,
     report_to: 'none',
-    project_name: 'huggingface',
+    project: 'huggingface',
     ds_stage: 'none',
     ds_offload: false,
     booster: 'auto',
     extra_args: '',
   })
 
+  const [showBrowser, setShowBrowser] = useState(false)
   const [previewCommand, setPreviewCommand] = useState('')
   const [logs, setLogs] = useState<string[]>([])
 
@@ -400,7 +402,7 @@ export function TrainPage() {
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <label className="text-sm font-medium">Dataset</label>
-                      <InfoTooltip content="Specific dataset(s) to use for training." impact="Defines the knowledge and task-specific skills the model will acquire." />
+                      <InfoTooltip content="Supported files: .json, .jsonl, .csv, .parquet, .arrow, .txt. Data format: Alpaca (instruction/input/output) or ShareGpt (conversations). Click Browse to auto-detect format." impact="Defines the knowledge and task-specific skills the model will acquire." />
                     </div>
                     {loadingDatasets ? (
                       <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -408,24 +410,29 @@ export function TrainPage() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <Select value={config.dataset} onValueChange={(v) => updateConfig('dataset', v)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a dataset" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60">
-                            {availableDatasets.map(d => (
-                              <SelectItem key={d.path} value={d.path}>{d.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                          <Select value={config.dataset} onValueChange={(v) => updateConfig('dataset', v)}>
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder="Select a dataset" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60">
+                              {availableDatasets.map(d => (
+                                <SelectItem key={d.path} value={d.path}>{d.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button variant="outline" size="icon" onClick={() => setShowBrowser(true)} title="Browse & auto-configure dataset">
+                            <Search className="w-4 h-4" />
+                          </Button>
+                        </div>
                         <Input 
                           value={config.dataset} 
                           onChange={(e) => updateConfig('dataset', e.target.value)}
-                          placeholder="Or enter custom path: alpaca, oasst1"
+                          placeholder="Or enter dataset name: my_dataset, alpaca"
                         />
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground">Comma-separated dataset names from data/ directory</p>
+                    <p className="text-xs text-muted-foreground">Dataset name from dataset_info.json, or click Browse to add a new one</p>
                   </div>
 
                   <div className="space-y-2">
@@ -849,7 +856,7 @@ export function TrainPage() {
                   {[
                     { key: 'use_rslora', label: 'RSLoRA', tip: 'Rank-Stabilized LoRA for better stability.' },
                     { key: 'use_dora', label: 'DoRA', tip: 'Weight-Decomposed LoRA for better quality.' },
-                    { key: 'use_pissa', label: 'PiSSA', tip: 'Principal Singular values adaptation.' },
+                    { key: 'pissa_init', label: 'PiSSA', tip: 'Principal Singular values adaptation.' },
                     { key: 'create_new_adapter', label: 'New Adapter', tip: 'Start with a fresh initialization.' },
                   ].map(item => (
                     <div key={item.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
@@ -1223,8 +1230,8 @@ export function TrainPage() {
                       <InfoTooltip content="The name of the project repository on the logging platform." impact="Helps organize your runs and compare versions on WandB/Neptune." />
                     </div>
                     <Input 
-                      value={config.project_name} 
-                      onChange={(e) => updateConfig('project_name', e.target.value)}
+                      value={config.project} 
+                      onChange={(e) => updateConfig('project', e.target.value)}
                       placeholder="huggingface"
                     />
                   </div>
@@ -1395,6 +1402,17 @@ export function TrainPage() {
           </div>
         </CardContent>
       </Card>
+
+      {showBrowser && (
+        <DatasetBrowser
+          onSelect={(name, dir) => {
+            updateConfig('dataset', name)
+            if (dir) updateConfig('dataset_dir', dir)
+            setShowBrowser(false)
+          }}
+          onClose={() => setShowBrowser(false)}
+        />
+      )}
     </div>
   )
 }

@@ -44,7 +44,10 @@ class ChatService:
             return "Model is missing tokenizer files - re-download the model"
         return lines[-1] if lines else "Unknown error"
 
-    def start_api(self, model_path: str, template: str = "default", finetuning_type: str = "lora") -> Dict[str, Any]:
+    def start_api(self, model_path: str, template: str = "default", finetuning_type: str = "lora",
+                  checkpoint_path: Optional[str] = None, infer_backend: str = "huggingface",
+                  infer_dtype: str = "auto", system_prompt: Optional[str] = None,
+                  enable_thinking: Optional[bool] = None) -> Dict[str, Any]:
         with self._lock:
             self.last_error = None
             
@@ -67,6 +70,17 @@ class ChatService:
                 "--template", template,
                 "--finetuning_type", finetuning_type,
             ]
+
+            if checkpoint_path:
+                cmd.extend(["--adapter_name_or_path", checkpoint_path])
+            if infer_backend and infer_backend != "huggingface":
+                cmd.extend(["--infer_backend", infer_backend])
+            if infer_dtype and infer_dtype != "auto":
+                cmd.extend(["--infer_dtype", infer_dtype])
+            if system_prompt:
+                cmd.extend(["--default_system", system_prompt])
+            if enable_thinking is not None:
+                cmd.extend(["--enable_thinking", str(enable_thinking).lower()])
 
             env = os.environ.copy()
             env['PYTHONPATH'] = str(self.src_path)
@@ -167,6 +181,7 @@ class ChatService:
                 "temperature": kwargs.get("temperature", 0.7),
                 "top_p": kwargs.get("top_p", 0.9),
                 "max_tokens": kwargs.get("max_tokens", 1024),
+                "presence_penalty": kwargs.get("repetition_penalty", 1.0),
                 "stream": False
             }
             

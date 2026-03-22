@@ -15,29 +15,47 @@ router = APIRouter()
 
 class ExportConfig(BaseModel):
     model_name_or_path: str = ""
-    checkpoint_dir: Optional[str] = None
+    adapter_name_or_path: Optional[str] = None
     export_dir: str = ""
     finetuning_type: str = "lora"
     template: str = "default"
     export_size: int = 10
     export_quant_bit: Optional[int] = None
-    export_quant_method: str = "bnb"
+    export_quantization_dataset: Optional[str] = None
     export_device: str = "auto"
     export_legacy_format: bool = False
     export_hub_model_id: Optional[str] = None
-    hub_private_repo: bool = False
+    extra_args: Optional[Dict[str, Any]] = None
 
     def to_export_kwargs(self) -> Dict[str, Any]:
-        kwargs = {}
-        if self.export_quant_bit:
-            kwargs['export_quant_bit'] = self.export_quant_bit
-            kwargs['export_quant_method'] = self.export_quant_method
-        if self.export_hub_model_id:
-            kwargs['hub_model_id'] = self.export_hub_model_id
-            kwargs['hub_private_repo'] = self.hub_private_repo
+        kwargs: Dict[str, Any] = {}
+
+        # Export size (shard size in GB)
+        kwargs['export_size'] = self.export_size
+
+        # Device
+        if self.export_device:
+            kwargs['export_device'] = self.export_device
+
+        # Legacy format (safetensors vs bin)
         if self.export_legacy_format:
-            kwargs['use_safetensors'] = 'false'
-        kwargs['max_shard_size'] = f"{self.export_size}G"
+            kwargs['export_legacy_format'] = True
+
+        # Quantization
+        if self.export_quant_bit:
+            kwargs['export_quantization_bit'] = self.export_quant_bit
+            kwargs['quantization_method'] = "bnb"
+            if self.export_quantization_dataset:
+                kwargs['export_quantization_dataset'] = self.export_quantization_dataset
+
+        # HuggingFace Hub
+        if self.export_hub_model_id:
+            kwargs['export_hub_model_id'] = self.export_hub_model_id
+
+        # Extra args
+        if self.extra_args:
+            kwargs.update(self.extra_args)
+
         return kwargs
 
 
@@ -62,21 +80,27 @@ async def preview_export(config: ExportConfig):
         f"--export_dir {config.export_dir}",
         f"--finetuning_type {config.finetuning_type}",
     ]
-    
-    if config.checkpoint_dir:
-        cmd_parts.append(f"--checkpoint_dir {config.checkpoint_dir}")
+
+    if config.adapter_name_or_path:
+        cmd_parts.append(f"--adapter_name_or_path {config.adapter_name_or_path}")
     if config.template:
         cmd_parts.append(f"--template {config.template}")
+    if config.export_size != 10:
+        cmd_parts.append(f"--export_size {config.export_size}")
+    if config.export_device and config.export_device != "auto":
+        cmd_parts.append(f"--export_device {config.export_device}")
+    if config.export_legacy_format:
+        cmd_parts.append("--export_legacy_format")
     if config.export_quant_bit:
-        cmd_parts.append(f"--export_quant_bit {config.export_quant_bit}")
+        cmd_parts.append(f"--export_quantization_bit {config.export_quant_bit}")
+        if config.export_quantization_dataset:
+            cmd_parts.append(f"--export_quantization_dataset {config.export_quantization_dataset}")
     if config.export_hub_model_id:
-        cmd_parts.append(f"--hub_model_id {config.export_hub_model_id}")
-    if config.hub_private_repo:
-        cmd_parts.append("--hub_private_repo")
-    
+        cmd_parts.append(f"--export_hub_model_id {config.export_hub_model_id}")
+
     return {
         "command": " ".join(cmd_parts),
-        "config": config.model_dump()
+        "config": config.model_dump(exclude_none=True)
     }
 
 
@@ -86,14 +110,14 @@ async def start_export(config: ExportConfig):
         return {"success": False, "error": "model_name_or_path is required"}
     if not config.export_dir:
         return {"success": False, "error": "export_dir is required"}
-    
+
     try:
         kwargs = config.to_export_kwargs()
         run_id = export_service.start_export(
             model_path=config.model_name_or_path,
             export_dir=config.export_dir,
             finetuning_type=config.finetuning_type,
-            checkpoint_dir=config.checkpoint_dir,
+            adapter_name_or_path=config.adapter_name_or_path,
             template=config.template,
             **kwargs
         )

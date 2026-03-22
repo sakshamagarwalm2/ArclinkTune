@@ -36,8 +36,6 @@ class EvaluateConfig(BaseModel):
             result['output_dir'] = f"output/eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         if 'predict' in result:
             result['do_predict'] = result.pop('predict')
-        if 'max_new_tokens' in result:
-            result['max_new_tokens'] = result.pop('max_new_tokens')
         return result
 
 
@@ -63,19 +61,33 @@ async def list_runs():
 
 @router.post("/preview")
 async def preview_evaluation(config: EvaluateConfig):
-    cfg = config.to_dict()
-    cmd_parts = ["llamafactory-cli eval"]
-    for key, value in cfg.items():
-        if value is not None and value != "":
-            if isinstance(value, bool):
-                if value:
-                    cmd_parts.append(f"--{key}")
-            else:
-                cmd_parts.append(f"--{key} {value}")
+    # Build a training-compatible config for evaluation
+    eval_cfg: Dict[str, Any] = {
+        "model_name_or_path": config.model_name_or_path,
+        "template": config.template,
+        "finetuning_type": config.finetuning_type,
+        "dataset": config.dataset,
+        "dataset_dir": config.dataset_dir,
+        "cutoff_len": config.cutoff_len,
+        "max_samples": config.max_samples,
+        "do_eval": True,
+        "per_device_eval_batch_size": config.batch_size,
+        "report_to": ["none"],
+    }
+    if config.checkpoint_dir:
+        eval_cfg["adapter_name_or_path"] = config.checkpoint_dir
+    if config.predict:
+        eval_cfg["do_predict"] = True
+        eval_cfg["predict_with_generate"] = True
+        eval_cfg["max_new_tokens"] = config.max_new_tokens
+        eval_cfg["temperature"] = config.temperature
+        eval_cfg["top_p"] = config.top_p
+    if config.output_dir:
+        eval_cfg["output_dir"] = config.output_dir
     
     return {
-        "command": " ".join(cmd_parts),
-        "config": cfg
+        "command": "llamafactory-cli train <eval_config.yaml>  # with do_eval=True",
+        "config": eval_cfg
     }
 
 

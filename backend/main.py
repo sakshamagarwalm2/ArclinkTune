@@ -9,7 +9,7 @@ sys.path.insert(0, str(project_root / "core" / "LlamaFactory" / "src"))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import models, training, chat, system, evaluate, export
+from routers import models, training, chat, system, evaluate, export, datasets
 from config import get_settings
 
 settings = get_settings()
@@ -34,6 +34,7 @@ app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(evaluate.router, prefix="/api/evaluate", tags=["Evaluate"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(system.router, prefix="/api/system", tags=["System"])
+app.include_router(datasets.router, prefix="/api/datasets", tags=["Datasets"])
 
 @app.get("/")
 async def root():

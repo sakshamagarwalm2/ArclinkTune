@@ -96,7 +96,7 @@ class ExportService:
                 run.progress = 100
 
     def start_export(self, model_path: str, export_dir: str, finetuning_type: str = "lora", 
-                    checkpoint_dir: Optional[str] = None, **kwargs) -> str:
+                    adapter_name_or_path: Optional[str] = None, template: Optional[str] = None, **kwargs) -> str:
         run_id = f"export_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
         cmd = [
@@ -107,8 +107,10 @@ class ExportService:
             '--finetuning_type', finetuning_type,
         ]
         
-        if checkpoint_dir:
-            cmd.extend(['--checkpoint_dir', checkpoint_dir])
+        if adapter_name_or_path:
+            cmd.extend(['--adapter_name_or_path', adapter_name_or_path])
+        if template:
+            cmd.extend(['--template', template])
         
         for key, value in kwargs.items():
             if value is not None and value != "":
@@ -121,7 +123,7 @@ class ExportService:
             'model_name_or_path': model_path,
             'export_dir': export_dir,
             'finetuning_type': finetuning_type,
-            'checkpoint_dir': checkpoint_dir,
+            'adapter_name_or_path': adapter_name_or_path,
             **kwargs
         }
         

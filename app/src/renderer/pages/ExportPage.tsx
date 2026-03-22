@@ -73,17 +73,17 @@ export function ExportPage() {
 
   const getConfig = () => ({
     model_name_or_path: modelPath,
-    checkpoint_dir: checkpointPath || undefined,
+    adapter_name_or_path: checkpointPath || undefined,
     export_dir: exportDir,
     finetuning_type: finetuningType,
     template: selectedModel?.template || 'default',
     export_size: exportSize,
     export_quant_bit: exportQuantBit !== 'none' ? parseInt(exportQuantBit) : undefined,
-    export_quant_method: 'bnb',
+    export_quantization_dataset: exportQuantBit !== 'none' ? exportQuantDataset : undefined,
     export_device: exportDevice,
     export_legacy_format: exportLegacyFormat,
     export_hub_model_id: exportHubModelId || undefined,
-    hub_private_repo: hubPrivateRepo,
+    extra_args: extraArgs ? JSON.parse(extraArgs) : undefined,
   })
 
   const handlePreview = async () => {

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     core_path: Path = Path(__file__).parent.parent / "core" / "LlamaFactory"
     venv_path: Path = Path(__file__).parent.parent / "core" / ".venv"
     models_dir: Path = Path.home() / "models"
-    data_dir: Path = Path(__file__).parent.parent / "core" / "LlamaFactory" / "src" / "llamafactory" / "data"
+    data_dir: Path = Path(__file__).parent.parent / "data"
     
     api_host: str = "127.0.0.1"
     api_port: int = 8000

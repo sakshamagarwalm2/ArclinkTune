@@ -139,6 +139,9 @@ export function ChatPage() {
         max_tokens: maxTokens,
         temperature,
         top_p: topP,
+        top_k: topK,
+        repetition_penalty: repetitionPenalty,
+        skip_special_tokens: skipSpecialTokens,
       }) as { content?: string; error?: string }
       
       console.log('Chat response:', response)
@@ -172,6 +175,11 @@ export function ChatPage() {
         model_path: modelPath,
         template: template,
         finetuning_type: finetuningType,
+        checkpoint_path: checkpointPath || undefined,
+        infer_backend: inferBackend,
+        infer_dtype: inferDtype,
+        system_prompt: systemPrompt || undefined,
+        enable_thinking: enableThinking,
       }) as { success: boolean; error?: string; details?: string }
       console.log('Load result:', result)
       

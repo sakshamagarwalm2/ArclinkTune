@@ -104,22 +104,26 @@ def install_llamafactory(venv_path):
         return False
     return True
 
-def install_cuda_for_monitoring():
-    print_step("Installing PyTorch with CUDA for GPU Monitoring")
+def install_cuda_for_monitoring(venv_path):
+    print_step("Installing PyTorch with CUDA support")
     
-    print("[INFO] This enables GPU health checks in the monitoring page.")
-    print("[INFO] This uses GLOBAL Python (not venv) for GPU monitoring.")
+    print("[INFO] This enables GPU health checks and hardware-accelerated training.")
+    print(f"[INFO] Using venv at: {venv_path}")
+    
+    pip_exe = get_pip_exe(venv_path)
     
     try:
-        print("\nInstalling PyTorch with CUDA 11.8...")
+        # Use CUDA 12.4 for modern drivers and Python 3.13 compatibility
+        print("\nInstalling PyTorch with CUDA 12.4 support...")
         result = subprocess.run([
-            sys.executable, '-m', 'pip', 'install', 
+            str(pip_exe), 'install', 
             'torch', 'torchvision',
-            '--index-url', 'https://download.pytorch.org/whl/cu118',
+            '--index-url', 'https://download.pytorch.org/whl/cu124',
+            '--force-reinstall',
             '-q'
         ], capture_output=True, text=True)
         
-        check_result = subprocess.run([sys.executable, '-c', 
+        check_result = subprocess.run([str(get_pip_exe(venv_path).parent / 'python.exe' if platform.system() == 'Windows' else get_pip_exe(venv_path).parent / 'python'), '-c', 
             'import torch; print(f"PyTorch: {torch.__version__}"); '
             'print(f"CUDA Available: {torch.cuda.is_available()}"); '
             'if torch.cuda.is_available(): print(f"GPU: {torch.cuda.get_device_name(0)}")'],
@@ -128,14 +132,14 @@ def install_cuda_for_monitoring():
         print(check_result.stdout)
         
         if 'True' in check_result.stdout:
-            print("[OK] CUDA PyTorch installed successfully!")
+            print("[OK] CUDA PyTorch installed successfully in venv!")
         else:
-            print("[WARN] CUDA not available. Check NVIDIA drivers.")
+            print("[WARN] CUDA still not available within venv. Check NVIDIA drivers or manual install.")
             
     except Exception as e:
-        print(f"[ERROR] Failed to install CUDA PyTorch: {e}")
+        print(f"[ERROR] Failed to install CUDA PyTorch into venv: {e}")
         print("[INFO] Install manually with:")
-        print("  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118")
+        print(f"  {pip_exe} install torch torchvision --index-url https://download.pytorch.org/whl/cu124")
 
 def main():
     print("\n" + "="*60)
@@ -157,7 +161,7 @@ def main():
     install_llamafactory(venv_path)
     
     if cuda_detected:
-        install_cuda_for_monitoring()
+        install_cuda_for_monitoring(venv_path)
     else:
         print("\n[WARN] No CUDA GPU detected.")
         print("[INFO] GPU monitoring will show 'No GPU Detected'")
@@ -174,9 +178,10 @@ def main():
     print("  2. Start frontend: cd app && npm run dev")
     print("")
     print("Architecture:")
-    print("  - GPU monitoring uses: Global Python + CUDA PyTorch")
-    print("  - Training uses:       core\\.venv + LlamaFactory")
-    print("  - Frontend uses:       Node.js + npm")
+    print("  - Virtual Env:         core\\.venv")
+    print("  - Backend & Training:  Uses venv + LlamaFactory + CUDA Support")
+    print("  - GPU Monitoring:      Integrated via venv PyTorch")
+    print("  - Frontend:            Node.js + npm")
 
 if __name__ == '__main__':
     main()
