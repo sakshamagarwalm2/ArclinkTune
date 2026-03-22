@@ -24,6 +24,7 @@ USAGE = (
     + "| Usage:                                                             |\n"
     + "|   llamafactory-cli train -h: train models                          |\n"
     + "|   llamafactory-cli export -h: merge LoRA adapters and export model |\n"
+    + "|   llamafactory-cli api -h: launch API server                       |\n"
     + "|   llamafactory-cli chat -h: launch a chat interface in CLI         |\n"
     + "|   llamafactory-cli env: show environment info                       |\n"
     + "|   llamafactory-cli version: show version info                        |\n"

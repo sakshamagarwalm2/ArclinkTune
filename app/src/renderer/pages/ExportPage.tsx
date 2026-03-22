@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Download, Bot, ArrowRight, RefreshCw } from 'lucide-react'
+import { Download, Bot, ArrowRight, RefreshCw, Square } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { api, Model } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
@@ -28,6 +28,8 @@ export function ExportPage() {
   const [isExporting, setIsExporting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [logs, setLogs] = useState<string[]>([])
+  const [runId, setRunId] = useState<string | null>(null)
+  const [stage, setStage] = useState('')
   
   const [modelPath, setModelPath] = useState('')
   const [finetuningType, setFinetuningType] = useState('lora')
@@ -43,6 +45,7 @@ export function ExportPage() {
   const [exportHubModelId, setExportHubModelId] = useState('')
   const [hubPrivateRepo, setHubPrivateRepo] = useState(false)
   const [extraArgs, setExtraArgs] = useState('')
+  const [commandPreview, setCommandPreview] = useState('')
 
   const { data: models = [], isLoading: loadingModels } = useQuery<Model[]>({
     queryKey: ['models', 'export'],
@@ -68,28 +71,106 @@ export function ExportPage() {
     }
   }
 
-  const handleExport = async () => {
-    setIsExporting(true)
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting export...`])
-    
-    let p = 0
-    const interval = setInterval(() => {
-      p += Math.random() * 15
-      if (p >= 100) {
-        p = 100
-        clearInterval(interval)
-        setIsExporting(false)
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Export completed!`])
-      }
-      setProgress(p)
-    }, 300)
+  const getConfig = () => ({
+    model_name_or_path: modelPath,
+    checkpoint_dir: checkpointPath || undefined,
+    export_dir: exportDir,
+    finetuning_type: finetuningType,
+    template: selectedModel?.template || 'default',
+    export_size: exportSize,
+    export_quant_bit: exportQuantBit !== 'none' ? parseInt(exportQuantBit) : undefined,
+    export_quant_method: 'bnb',
+    export_device: exportDevice,
+    export_legacy_format: exportLegacyFormat,
+    export_hub_model_id: exportHubModelId || undefined,
+    hub_private_repo: hubPrivateRepo,
+  })
+
+  const handlePreview = async () => {
+    try {
+      const response = await api.export.preview(getConfig())
+      setCommandPreview(response.command)
+    } catch (error) {
+      console.error('Preview failed:', error)
+    }
   }
 
-  const commandPreview = `llamafactory-cli export ${modelPath ? `--model_name_or_path ${modelPath}` : ''} ${checkpointPath ? `--checkpoint_dir ${checkpointPath}` : ''} ${exportDir ? `--export_dir ${exportDir}` : ''}`
+  const pollStatus = useCallback(async () => {
+    if (!runId || !isExporting) return
+    
+    try {
+      const status = await api.export.getStatus(runId)
+      setProgress(status.progress)
+      setStage(status.stage || '')
+      
+      const logsResponse = await api.export.getLogs(runId)
+      if (logsResponse.logs.length > 0) {
+        setLogs(prev => [...prev, ...logsResponse.logs.slice(-20)])
+      }
+      
+      if (status.status === 'completed' || status.status === 'stopped') {
+        setIsExporting(false)
+        if (status.status === 'completed') {
+          setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Export completed!`])
+        }
+      }
+    } catch (error) {
+      console.error('Status poll failed:', error)
+    }
+  }, [runId, isExporting])
+
+  useEffect(() => {
+    if (!isExporting || !runId) return
+    
+    const interval = setInterval(pollStatus, 3000)
+    return () => clearInterval(interval)
+  }, [isExporting, runId, pollStatus])
+
+  const handleExport = async () => {
+    if (!modelPath) {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: Model path is required`])
+      return
+    }
+    if (!exportDir) {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: Export directory is required`])
+      return
+    }
+    
+    setIsExporting(true)
+    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting export...`])
+    setProgress(0)
+    setStage('')
+    
+    try {
+      const response = await api.export.start(getConfig())
+      
+      if (response.success && response.run_id) {
+        setRunId(response.run_id)
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Export started: ${response.run_id}`])
+      } else {
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: ${response.error || 'Failed to start'}`])
+        setIsExporting(false)
+      }
+    } catch (error: any) {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: ${error.message}`])
+      setIsExporting(false)
+    }
+  }
+
+  const handleStop = async () => {
+    if (!runId) return
+    
+    try {
+      await api.export.stop(runId)
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Export stopped`])
+    } catch (error) {
+      console.error('Stop failed:', error)
+    }
+    setIsExporting(false)
+  }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
@@ -330,7 +411,6 @@ export function ExportPage() {
         </Card>
       </div>
 
-      {/* Export Actions */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -340,14 +420,14 @@ export function ExportPage() {
         <CardContent className="space-y-4">
           <div className="p-3 bg-muted/30 rounded-lg border border-border/50">
             <p className="text-xs font-medium mb-1 text-muted-foreground">Command Preview:</p>
-            <code className="text-xs break-all font-mono">{commandPreview}</code>
+            <code className="text-xs break-all font-mono">{commandPreview || 'Click Preview to see command'}</code>
           </div>
 
           {isExporting && (
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <div className="flex items-center">
-                  <span>Export Progress</span>
+                  <span>Export Progress {stage && `(${stage})`}</span>
                   <InfoTooltip content="Status of the merging and file writing process." impact="Provides feedback during high-disk-activity operations." />
                 </div>
                 <span className="text-primary font-medium tabular-nums">{progress.toFixed(1)}%</span>
@@ -357,23 +437,22 @@ export function ExportPage() {
           )}
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <div className="flex items-center gap-1 group">
-              <Button variant="outline" onClick={() => setLogs([])} className="w-full sm:w-auto">
-                Clear Logs
-              </Button>
-              <InfoTooltip content="Wipes the display console for a clean view." impact="Does not affect file logs or training state." />
-            </div>
+            <Button variant="outline" onClick={handlePreview} className="w-full sm:w-auto">
+              Preview Command
+            </Button>
             
-            <div className="flex items-center gap-1 group flex-1">
-              <Button className="w-full" onClick={handleExport} disabled={isExporting || !exportDir}>
-                <Download className="w-4 h-4 mr-2" /> 
-                {isExporting ? 'Exporting...' : 'Start Export'}
+            {isExporting ? (
+              <Button variant="destructive" onClick={handleStop} className="w-full sm:w-auto">
+                <Square className="w-4 h-4 mr-2" /> Stop Export
               </Button>
-              <InfoTooltip content="Begins the final merge or quantization and saves the model." impact="Writes several gigabytes of data to your output directory." />
-            </div>
+            ) : (
+              <Button onClick={handleExport} className="w-full sm:w-auto" disabled={!modelPath || !exportDir}>
+                <Download className="w-4 h-4 mr-2" /> Start Export
+              </Button>
+            )}
           </div>
 
-          <div className="min-h-[128px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
+          <div className="min-h-[128px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[200px] overflow-y-auto">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Export logs will appear here...</p>
             ) : (

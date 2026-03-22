@@ -227,6 +227,12 @@ export function TrainPage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const { data: availableDatasets = [], isLoading: loadingDatasets } = useQuery<any[]>({
+    queryKey: ['models', 'datasets'],
+    queryFn: () => api.training.getDatasets(),
+    staleTime: 5 * 60 * 1000,
+  })
+
   useEffect(() => {
     if (apiTemplates.length > 0 && templates.length === 0) {
       setTemplates(apiTemplates)
@@ -396,12 +402,30 @@ export function TrainPage() {
                       <label className="text-sm font-medium">Dataset</label>
                       <InfoTooltip content="Specific dataset(s) to use for training." impact="Defines the knowledge and task-specific skills the model will acquire." />
                     </div>
-                    <Input 
-                      value={config.dataset} 
-                      onChange={(e) => updateConfig('dataset', e.target.value)}
-                      placeholder="alpaca, oasst1"
-                    />
-                    <p className="text-xs text-muted-foreground">Comma-separated dataset names</p>
+                    {loadingDatasets ? (
+                      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <RefreshCw className="w-4 h-4 animate-spin" /> Loading datasets...
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Select value={config.dataset} onValueChange={(v) => updateConfig('dataset', v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a dataset" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {availableDatasets.map(d => (
+                              <SelectItem key={d.path} value={d.path}>{d.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input 
+                          value={config.dataset} 
+                          onChange={(e) => updateConfig('dataset', e.target.value)}
+                          placeholder="Or enter custom path: alpaca, oasst1"
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">Comma-separated dataset names from data/ directory</p>
                   </div>
 
                   <div className="space-y-2">

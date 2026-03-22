@@ -38,6 +38,8 @@ export function ChatPage() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isModelLoaded, setIsModelLoaded] = useState(false)
+  const [loadError, setLoadError] = useState<{summary: string; details: string} | null>(null)
+  const [showErrorDetails, setShowErrorDetails] = useState(false)
   
   const [modelPath, setModelPath] = useState('')
   const [finetuningType, setFinetuningType] = useState('lora')
@@ -78,9 +80,12 @@ export function ChatPage() {
   }, [apiTemplates, templates.length, setTemplates])
 
   useEffect(() => {
+    console.log('selectedModel changed:', selectedModel)
     if (selectedModel && selectedModel.path) {
       setModelPath(selectedModel.path)
-      setTemplate(selectedModel.template || 'default')
+      if (selectedModel.template) {
+        setTemplate(selectedModel.template)
+      }
     }
   }, [selectedModel])
 
@@ -94,6 +99,7 @@ export function ChatPage() {
         path: model.path,
         template: model.template,
       })
+      setLoadError(null)
     }
   }
 
@@ -111,38 +117,65 @@ export function ChatPage() {
         max_tokens: maxTokens,
         temperature,
         top_p: topP,
-      }) as { content: string }
+      }) as { content?: string; error?: string }
       
-      setMessages(prev => [...prev, { role: 'assistant', content: response.content }])
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error: Failed to get response' }])
+      console.log('Chat response:', response)
+      
+      if (response.error) {
+        setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }])
+      } else if (response.content) {
+        setMessages(prev => [...prev, { role: 'assistant', content: response.content }])
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: `Error: Unexpected response format: ${JSON.stringify(response)}` }])
+      }
+    } catch (error: any) {
+      console.error('Chat error:', error)
+      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${error?.message || 'Failed to get response'}` }])
     } finally {
       setIsLoading(false)
     }
   }
 
   const loadModel = async () => {
+    if (!modelPath) {
+      setLoadError({ summary: 'No model path specified', details: 'Please enter or select a model path to continue.' })
+      return
+    }
+    
+    setLoadError(null)
+    setShowErrorDetails(false)
     setIsLoading(true)
     try {
-      await api.chat.load({ 
+      const result = await api.chat.load({ 
         model_path: modelPath,
+        template: template,
         finetuning_type: finetuningType,
-        infer_backend: inferBackend,
-        infer_dtype: inferDtype,
-        checkpoint_path: checkpointPath,
-        template,
-        extra_args: extraArgs ? JSON.parse(extraArgs) : {},
-      })
-      setIsModelLoaded(true)
-      setMessages(prev => [...prev, { 
-        role: 'system', 
-        content: 'Model loaded successfully. You can now start chatting.' 
-      }])
-    } catch (error) {
+      }) as { success: boolean; error?: string; details?: string }
+      console.log('Load result:', result)
+      
+      if (result.success) {
+        setIsModelLoaded(true)
+        setMessages(prev => [...prev, { 
+          role: 'system', 
+          content: `Model "${modelPath}" loaded successfully. You can now start chatting.` 
+        }])
+        setLoadError(null)
+      } else {
+        const errorSummary = result.error || 'Failed to load model'
+        const errorDetails = result.details || result.error || 'Unknown error'
+        setLoadError({ summary: errorSummary, details: errorDetails })
+        setMessages(prev => [...prev, { 
+          role: 'system', 
+          content: `Error: ${errorSummary}` 
+        }])
+      }
+    } catch (error: any) {
       console.error('Failed to load model:', error)
+      const errorMsg = error?.message || String(error)
+      setLoadError({ summary: 'API request failed', details: errorMsg })
       setMessages(prev => [...prev, { 
         role: 'system', 
-        content: `Error loading model: ${error}` 
+        content: `Error: ${errorMsg}` 
       }])
     } finally {
       setIsLoading(false)
@@ -153,6 +186,7 @@ export function ChatPage() {
     await api.chat.unload()
     setIsModelLoaded(false)
     setMessages([])
+    setLoadError(null)
   }
 
   const clearChat = () => {
@@ -203,7 +237,7 @@ export function ChatPage() {
               )}
               <Input 
                 value={modelPath} 
-                onChange={(e) => setModelPath(e.target.value)}
+                onChange={(e) => { setModelPath(e.target.value); setLoadError(null) }}
                 placeholder="Or enter custom path: meta-llama/Llama-3.1-8B-Instruct"
                 className="mt-2"
                 disabled={isModelLoaded}
@@ -278,6 +312,29 @@ export function ChatPage() {
               )}
               <InfoTooltip content="Initiates or terminates the model inference engine." impact="Loading takes VRAM; unloading frees it for other tasks like training." />
             </div>
+            
+            {loadError && (
+              <div className="mt-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-destructive">{loadError.summary}</p>
+                    {showErrorDetails && (
+                      <p className="text-xs text-muted-foreground mt-1 font-mono whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+                        {loadError.details}
+                      </p>
+                    )}
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 px-2 text-xs shrink-0"
+                    onClick={() => setShowErrorDetails(!showErrorDetails)}
+                  >
+                    {showErrorDetails ? 'Hide' : 'Details'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 

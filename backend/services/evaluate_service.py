@@ -4,25 +4,26 @@ import yaml
 import threading
 import queue
 import signal
-from pathlib import Path
-from typing import Dict, Any, Optional, List, Callable
-from datetime import datetime
 import re
+from pathlib import Path
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+
+os.environ["DISABLE_VERSION_CHECK"] = "1"
 
 
-class TrainingProcess:
+class EvaluateProcess:
     def __init__(self, run_id: str, config: Dict[str, Any], process: subprocess.Popen):
         self.run_id = run_id
         self.config = config
         self.process = process
         self.status = "running"
         self.progress = 0
-        self.current_step = 0
-        self.total_steps = 0
-        self.loss_history: List[float] = []
+        self.current_task = 0
+        self.total_tasks = 0
+        self.results: Dict[str, Any] = {}
         self.log_lines: List[str] = []
         self.start_time = datetime.now()
-        self.log_queue: queue.Queue = queue.Queue()
         self._stop_event = threading.Event()
 
     def is_running(self) -> bool:
@@ -45,17 +46,16 @@ class TrainingProcess:
         return int((datetime.now() - self.start_time).total_seconds())
 
 
-class TrainingService:
+class EvaluateService:
     def __init__(self, llamafactory_path: Path, venv_python: str):
         self.llamafactory_path = llamafactory_path
         self.venv_python = venv_python
         self.src_path = llamafactory_path / "src"
-        self.runs: Dict[str, TrainingProcess] = {}
-        self._log_reader_thread: Optional[threading.Thread] = None
+        self.runs: Dict[str, EvaluateProcess] = {}
 
     def create_config_file(self, config: Dict[str, Any], output_dir: Path) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
-        config_path = output_dir / "train_config.yaml"
+        config_path = output_dir / "eval_config.yaml"
         
         with open(config_path, 'w', encoding='utf-8') as f:
             yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
@@ -63,17 +63,19 @@ class TrainingService:
         return config_path
 
     def parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
-        loss_pattern = r"'loss':\s*([0-9.]+)"
-        step_pattern = r"Step\s*(\d+)/(\d+)"
-        match_loss = re.search(loss_pattern, line)
-        match_step = re.search(step_pattern, line)
+        task_pattern = r"Evaluating\|(\d+)/(\d+)"
+        result_pattern = r"'([^']+)':\s*([0-9.]+)"
         
         result = {}
-        if match_loss:
-            result['loss'] = float(match_loss.group(1))
-        if match_step:
-            result['current_step'] = int(match_step.group(1))
-            result['total_steps'] = int(match_step.group(2))
+        match_task = re.search(task_pattern, line)
+        match_result = re.search(result_pattern, line)
+        
+        if match_task:
+            result['current_task'] = int(match_task.group(1))
+            result['total_tasks'] = int(match_task.group(2))
+        if match_result:
+            result['metric'] = match_result.group(1)
+            result['value'] = float(match_result.group(2))
         
         return result if result else None
 
@@ -92,14 +94,14 @@ class TrainingService:
                             run.log_lines.append(line)
                             parsed = self.parse_log_line(line)
                             if parsed:
-                                if 'loss' in parsed:
-                                    run.loss_history.append(parsed['loss'])
-                                if 'current_step' in parsed:
-                                    run.current_step = parsed['current_step']
-                                if 'total_steps' in parsed:
-                                    run.total_steps = parsed['total_steps']
-                                    if run.total_steps > 0:
-                                        run.progress = int(run.current_step / run.total_steps * 100)
+                                if 'current_task' in parsed:
+                                    run.current_task = parsed['current_task']
+                                if 'total_tasks' in parsed:
+                                    run.total_tasks = parsed['total_tasks']
+                                    if run.total_tasks > 0:
+                                        run.progress = int(run.current_task / run.total_tasks * 100)
+                                if 'metric' in parsed:
+                                    run.results[parsed['metric']] = parsed['value']
                     elif run.process.poll() is not None:
                         break
                 else:
@@ -111,15 +113,15 @@ class TrainingService:
                 run.status = "completed"
                 run.progress = 100
 
-    def start_training(self, config: Dict[str, Any]) -> str:
-        run_id = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    def start_evaluation(self, config: Dict[str, Any]) -> str:
+        run_id = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         output_dir = Path(config.get('output_dir', f'output/{run_id}'))
         
         config_path = self.create_config_file(config, output_dir)
         
         cmd = [
             self.venv_python,
-            '-m', 'llamafactory.cli', 'train',
+            '-m', 'llamafactory.cli', 'eval',
             str(config_path)
         ]
         
@@ -136,7 +138,7 @@ class TrainingService:
                 preexec_fn=os.setsid if os.name != 'nt' else None
             )
             
-            run = TrainingProcess(run_id, config, process)
+            run = EvaluateProcess(run_id, config, process)
             self.runs[run_id] = run
             
             reader = threading.Thread(target=self._read_logs, args=(run_id,), daemon=True)
@@ -144,31 +146,22 @@ class TrainingService:
             
             return run_id
         except Exception as e:
-            raise RuntimeError(f"Failed to start training: {e}")
+            raise RuntimeError(f"Failed to start evaluation: {e}")
 
     def get_status(self, run_id: str) -> Dict[str, Any]:
         run = self.runs.get(run_id)
         if not run:
             return {"error": "Run not found"}
         
-        status = {
+        return {
             "run_id": run_id,
             "status": run.status,
             "progress": run.progress,
-            "current_step": run.current_step,
-            "total_steps": run.total_steps,
-            "loss_history": run.loss_history[-100:],
+            "current_task": run.current_task,
+            "total_tasks": run.total_tasks,
+            "results": run.results,
             "elapsed_seconds": run.get_elapsed_time(),
         }
-        
-        if run.status == "completed":
-            status["message"] = "Training completed successfully"
-        elif run.status == "stopped":
-            status["message"] = "Training was stopped by user"
-        elif run.status == "running":
-            status["message"] = f"Training in progress: Step {run.current_step}/{run.total_steps}"
-        
-        return status
 
     def get_logs(self, run_id: str, lines: int = 100) -> List[str]:
         run = self.runs.get(run_id)
@@ -176,7 +169,7 @@ class TrainingService:
             return []
         return run.log_lines[-lines:]
 
-    def stop_training(self, run_id: str) -> bool:
+    def stop_evaluation(self, run_id: str) -> bool:
         run = self.runs.get(run_id)
         if not run:
             return False
@@ -192,7 +185,6 @@ class TrainingService:
                 "progress": run.progress,
                 "start_time": run.start_time.isoformat(),
                 "config_summary": {
-                    "stage": run.config.get("stage", "unknown"),
                     "model": run.config.get("model_name_or_path", "unknown"),
                 }
             }
@@ -207,3 +199,18 @@ class TrainingService:
             del self.runs[run_id]
             return True
         return False
+
+
+_evaluate_service: Optional[EvaluateService] = None
+
+def get_evaluate_service(llamafactory_path: Optional[Path] = None, venv_python: Optional[str] = None) -> EvaluateService:
+    global _evaluate_service
+    if _evaluate_service is None:
+        from config import get_settings
+        settings = get_settings()
+        if llamafactory_path is None:
+            llamafactory_path = settings.core_path
+        if venv_python is None:
+            venv_python = settings.get_venv_python()
+        _evaluate_service = EvaluateService(llamafactory_path, venv_python)
+    return _evaluate_service

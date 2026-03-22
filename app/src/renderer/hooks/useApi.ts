@@ -223,4 +223,20 @@ export const api = {
     getInfo: () => fetchApi<SystemInfo>('/system/info'),
     getGpuHealth: () => fetchApi<GPUHealthResult>('/system/gpu/health'),
   },
+  evaluate: {
+    preview: (config: Record<string, any>) => fetchApi<{ command: string }>('/evaluate/preview', { method: 'POST', body: JSON.stringify(config) }),
+    start: (config: Record<string, any>) => fetchApi<{ run_id: string; success: boolean; error?: string }>('/evaluate/start', { method: 'POST', body: JSON.stringify(config) }),
+    getStatus: (runId: string) => fetchApi<{ run_id: string; status: string; progress: number; results: Record<string, number> }>(`/evaluate/status/${runId}`),
+    stop: (runId: string) => fetchApi<{ success: boolean }>(`/evaluate/stop/${runId}`, { method: 'POST' }),
+    getLogs: (runId: string) => fetchApi<{ logs: string[]; count: number }>(`/evaluate/logs/${runId}`),
+    listRuns: () => fetchApi<{ run_id: string; status: string; progress: number }[]>('/evaluate/runs'),
+  },
+  export: {
+    preview: (config: Record<string, any>) => fetchApi<{ command: string }>('/export/preview', { method: 'POST', body: JSON.stringify(config) }),
+    start: (config: Record<string, any>) => fetchApi<{ run_id: string; success: boolean; error?: string }>('/export/start', { method: 'POST', body: JSON.stringify(config) }),
+    getStatus: (runId: string) => fetchApi<{ run_id: string; status: string; progress: number; stage: string }>(`/export/status/${runId}`),
+    stop: (runId: string) => fetchApi<{ success: boolean }>(`/export/stop/${runId}`, { method: 'POST' }),
+    getLogs: (runId: string) => fetchApi<{ logs: string[]; count: number }>(`/export/logs/${runId}`),
+    listRuns: () => fetchApi<{ run_id: string; status: string; progress: number }[]>('/export/runs'),
+  },
 }

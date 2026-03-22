@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { api } from '@/hooks/useApi'
 
 import { cn } from '@/lib/utils'
 
@@ -17,6 +18,8 @@ export function EvaluatePage() {
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [logs, setLogs] = useState<string[]>([])
+  const [runId, setRunId] = useState<string | null>(null)
+  const [results, setResults] = useState<Record<string, number>>({})
   
   const [modelPath, setModelPath] = useState('')
   const [finetuningType, setFinetuningType] = useState('lora')
@@ -37,35 +40,107 @@ export function EvaluatePage() {
   const [outputDir, setOutputDir] = useState('')
   const [commandPreview, setCommandPreview] = useState('')
 
+  const getConfig = () => ({
+    model_name_or_path: modelPath,
+    template,
+    finetuning_type: finetuningType,
+    checkpoint_dir: checkpointPath || undefined,
+    dataset,
+    dataset_dir: datasetDir,
+    cutoff_len: cutoffLen,
+    max_samples: maxSamples,
+    batch_size: batchSize,
+    predict,
+    max_new_tokens: maxNewTokens,
+    temperature,
+    top_p: topP,
+    output_dir: outputDir || undefined,
+  })
+
   const handlePreview = async () => {
-    setCommandPreview(`llamafactory-cli eval --model_name_or_path ${modelPath || '<model>'} --template ${template}`)
+    try {
+      const response = await api.evaluate.preview(getConfig())
+      setCommandPreview(response.command)
+    } catch (error) {
+      console.error('Preview failed:', error)
+    }
   }
+
+  const pollStatus = useCallback(async () => {
+    if (!runId || !isRunning) return
+    
+    try {
+      const status = await api.evaluate.getStatus(runId)
+      setProgress(status.progress)
+      
+      if (status.results) {
+        setResults(status.results)
+      }
+      
+      const logsResponse = await api.evaluate.getLogs(runId)
+      if (logsResponse.logs.length > 0) {
+        setLogs(prev => [...prev, ...logsResponse.logs.slice(-20)])
+      }
+      
+      if (status.status === 'completed' || status.status === 'stopped') {
+        setIsRunning(false)
+        if (status.status === 'completed') {
+          setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation completed!`])
+        }
+      }
+    } catch (error) {
+      console.error('Status poll failed:', error)
+    }
+  }, [runId, isRunning])
+
+  useEffect(() => {
+    if (!isRunning || !runId) return
+    
+    const interval = setInterval(pollStatus, 3000)
+    return () => clearInterval(interval)
+  }, [isRunning, runId, pollStatus])
 
   const handleStart = async () => {
+    if (!modelPath) {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: Model path is required`])
+      return
+    }
+    
     setIsRunning(true)
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Starting evaluation...`])
+    setProgress(0)
+    setResults({})
     
-    let p = 0
-    const interval = setInterval(() => {
-      p += Math.random() * 10
-      if (p >= 100) {
-        p = 100
-        clearInterval(interval)
+    try {
+      const response = await api.evaluate.start(getConfig())
+      
+      if (response.success && response.run_id) {
+        setRunId(response.run_id)
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation started: ${response.run_id}`])
+      } else {
+        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: ${response.error || 'Failed to start'}`])
         setIsRunning(false)
-        setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation completed!`])
       }
-      setProgress(p)
-    }, 500)
+    } catch (error: any) {
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: ${error.message}`])
+      setIsRunning(false)
+    }
   }
 
-  const handleStop = () => {
+  const handleStop = async () => {
+    if (!runId) return
+    
+    try {
+      await api.evaluate.stop(runId)
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation stopped`])
+    } catch (error) {
+      console.error('Stop failed:', error)
+    }
     setIsRunning(false)
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation stopped`])
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2">
@@ -308,7 +383,6 @@ export function EvaluatePage() {
               <InfoTooltip content="Generates the CLI command for this evaluation run." impact="Allows manual verification of all flags and paths before execution." />
             </div>
 
-            {/* Interlink */}
             <div className="flex items-center gap-1 group mt-2">
               <Link to="/export" className="flex-1">
                 <Button variant="outline" className="w-full gap-2">
@@ -321,7 +395,24 @@ export function EvaluatePage() {
         </Card>
       </div>
 
-      {/* Actions */}
+      {Object.keys(results).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Results</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Object.entries(results).map(([key, value]) => (
+                <div key={key} className="p-3 bg-muted/30 rounded-lg border border-border/50">
+                  <p className="text-xs text-muted-foreground truncate">{key}</p>
+                  <p className="text-2xl font-bold text-primary">{(value * 100).toFixed(2)}%</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -338,7 +429,7 @@ export function EvaluatePage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-1 group w-full sm:w-auto">
-                  <Button onClick={handleStart} className="w-full sm:w-auto">
+                  <Button onClick={handleStart} className="w-full sm:w-auto" disabled={!modelPath}>
                     <Play className="w-4 h-4 mr-2" /> Start Evaluation
                   </Button>
                   <InfoTooltip content="Begins the benchmarking process on the selected datasets." impact="Runs the model through thousands of questions to calculate accuracy scores." />
@@ -360,7 +451,7 @@ export function EvaluatePage() {
               <Progress value={progress} className="h-2" variant="green" />
             </div>
           )}
-          <div className="min-h-[192px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
+          <div className="min-h-[192px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Evaluation logs will appear here...</p>
             ) : (

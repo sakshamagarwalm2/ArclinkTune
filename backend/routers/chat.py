@@ -8,25 +8,22 @@ class Message(BaseModel):
     role: str
     content: str
 
-chat_state = {
-    "loaded": False,
-    "model": None,
-}
+from services.chat_service import get_chat_service
+
+chat_service = get_chat_service()
 
 @router.post("/load")
 async def load_model(body: dict):
-    model_path = body.get("model_path")
-    finetuning_type = body.get("finetuning_type", "lora")
+    model_path = str(body.get("model_path", ""))
+    template = str(body.get("template", "default"))
+    finetuning_type = str(body.get("finetuning_type", "lora"))
     
-    chat_state["loaded"] = True
-    chat_state["model"] = model_path
-    
-    return {"success": True, "model": model_path}
+    result = chat_service.start_api(model_path, template, finetuning_type)
+    return result
 
 @router.post("/unload")
 async def unload_model():
-    chat_state["loaded"] = False
-    chat_state["model"] = None
+    chat_service.stop_api()
     return {"success": True}
 
 @router.post("/chat")
@@ -36,15 +33,20 @@ async def chat(body: dict):
     temperature = body.get("temperature", 0.95)
     top_p = body.get("top_p", 0.7)
     
-    if not chat_state["loaded"]:
+    status = chat_service.get_status()
+    if not status["loaded"]:
         return {"error": "No model loaded"}
     
-    user_message = messages[-1]["content"] if messages else ""
+    # Forward the simplified messages to the Chat API
+    response = chat_service.chat(
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p
+    )
     
-    response_content = f"This is a simulated response to: {user_message[:50]}... (Model: {chat_state['model']})"
-    
-    return {"content": response_content}
+    return response
 
 @router.get("/status")
 async def get_chat_status():
-    return chat_state
+    return chat_service.get_status()

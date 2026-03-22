@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from ..extras.constants import EngineName
 from ..extras.misc import torch_gc
 from ..hparams import get_infer_args
+from ..hparams import ModelArguments, DataArguments, FinetuningArguments, GeneratingArguments
 
 
 if TYPE_CHECKING:
@@ -44,8 +45,14 @@ class ChatModel:
     Async methods: achat(), astream_chat() and aget_scores().
     """
 
-    def __init__(self, args: Optional[dict[str, Any]] = None) -> None:
-        model_args, data_args, finetuning_args, generating_args = get_infer_args(args)
+    def __init__(
+        self,
+        args: Optional[dict[str, Any] | tuple["ModelArguments", "DataArguments", "FinetuningArguments", "GeneratingArguments"]] = None
+    ) -> None:
+        if args is not None and isinstance(args, tuple) and len(args) >= 4:
+            model_args, data_args, finetuning_args, generating_args = args
+        else:
+            model_args, data_args, finetuning_args, generating_args = get_infer_args(args)
 
         if model_args.infer_backend == EngineName.HF:
             from .hf_engine import HuggingfaceEngine

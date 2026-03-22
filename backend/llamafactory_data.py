@@ -110,7 +110,7 @@ def get_model_groups_from_huggingface(hub: str = "huggingface") -> Dict[str, Lis
         "meta-llama", "Qwen", "deepseek-ai", "google", "mistralai",
         "01-ai", "THUDM", "openbmb", "internlm", "baichuan-inc",
         "codellama", "WizardLM", "microsoft", "bigcode", "tiiuae", "cohere",
-        "LlamaFactory", "meta-llama", "nvidia", " NousResearch", "CognitiveFM",
+        "LlamaFactory", "meta-llama", "nvidia", "NousResearch", "CognitiveFM",
     ]
     
     all_models = []

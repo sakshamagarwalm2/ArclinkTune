@@ -10,7 +10,7 @@ settings = get_settings()
 
 from services.training_service import TrainingService
 
-training_service = TrainingService(settings.core_path)
+training_service = TrainingService(settings.core_path, settings.get_venv_python())
 
 router = APIRouter()
 
