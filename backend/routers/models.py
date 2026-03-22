@@ -43,7 +43,7 @@ class DownloadTaskResponse(BaseModel):
 @router.get("/", response_model=Dict)
 async def list_models(hub: str = Query("huggingface", description="Model hub: huggingface, modelscope")):
     download_service = get_download_service()
-    local_paths = {m["local_path"] for m in download_service.get_local_models()}
+    local_paths = {m["name"] for m in download_service.get_local_models()}
     
     if isinstance(LLAMAFACTORY_MODELS, dict):
         grouped = {}
@@ -76,7 +76,7 @@ async def list_models(hub: str = Query("huggingface", description="Model hub: hu
 @router.get("/flat", response_model=List[Model])
 async def list_models_flat():
     download_service = get_download_service()
-    local_paths = {m["local_path"] for m in download_service.get_local_models()}
+    local_paths = {m["name"] for m in download_service.get_local_models()}
     
     if isinstance(LLAMAFACTORY_MODELS, dict):
         all_models = []

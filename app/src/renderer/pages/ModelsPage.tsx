@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { api, Model, DownloadTask, LocalModel, ModelGroup } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
 import { 
@@ -489,176 +490,205 @@ export function ModelsPage() {
                 )}
               </div>
               
-              <div className="space-y-6">
+              <Accordion type="multiple" defaultValue={Object.keys(modelGroups.groups)} className="space-y-4">
                 {Object.entries(modelGroups.groups).map(([groupName, groupModels]) => {
                   const filteredGroup = getFilteredModelsInGroup(groupModels)
                   if (filteredGroup.length === 0) return null
                   
                   return (
-                    <div key={groupName}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <h3 className="text-base font-semibold">{groupName}</h3>
-                        <Badge variant="secondary" className="text-xs">{filteredGroup.length}</Badge>
-                        {groupName === 'Meta Llama' && (
-                          <Badge variant="secondary" className="text-xs bg-amber-200 text-amber-900 border-amber-300">Popular</Badge>
-                        )}
-                      </div>
+                    <AccordionItem key={groupName} value={groupName} className="border-none">
+                      <AccordionTrigger className="hover:no-underline py-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-semibold">{groupName}</h3>
+                          <Badge variant="secondary" className="text-xs">{filteredGroup.length}</Badge>
+                          {groupName === 'Meta Llama' && (
+                            <Badge variant="secondary" className="text-xs bg-amber-200 text-amber-900 border-amber-300">Popular</Badge>
+                          )}
+                        </div>
+                      </AccordionTrigger>
                       
-                      {viewMode === 'grid' ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {filteredGroup.map((model, idx) => (
-                            <Card 
-                              key={idx} 
-                              className={`group card-hover ${model.downloaded ? 'border-green-500/50 bg-green-500/5' : ''}`}
-                            >
-                              <CardHeader className="pb-3">
-                                <div className="flex items-center gap-3">
-                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
-                                    model.downloaded ? 'bg-green-500' : 'brand-gradient'
-                                  } group-hover:shadow-neon transition-shadow`}>
-                                    <Bot className="w-5 h-5 text-white" />
+                      <AccordionContent className="pt-4">
+                        {viewMode === 'grid' ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {filteredGroup.map((model, idx) => (
+                              <Card 
+                                key={idx} 
+                                className={`group card-hover transition-all duration-300 ${model.downloaded ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/20' : ''}`}
+                              >
+                                <CardHeader className="pb-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-110 ${
+                                      model.downloaded ? 'bg-primary shadow-neon' : 'brand-gradient'
+                                    }`}>
+                                      <Bot className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <CardTitle className="text-sm truncate">{model.name}</CardTitle>
+                                      <p className="text-xs text-muted-foreground truncate" title={model.path}>{model.path}</p>
+                                    </div>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <CardTitle className="text-sm truncate">{model.name}</CardTitle>
-                                    <p className="text-xs text-muted-foreground truncate" title={model.path}>{model.path}</p>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider">{model.template || 'default'}</Badge>
+                                    {model.downloaded && (
+                                      <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider bg-primary shadow-sm">
+                                        <CheckCircle className="w-3 h-3 mr-1" /> Downloaded
+                                      </Badge>
+                                    )}
                                   </div>
-                                </div>
-                              </CardHeader>
-                              <CardContent className="space-y-3">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <Badge variant="secondary" className="text-xs">{model.template || 'default'}</Badge>
-                                  {model.downloaded ? (
-                                    <Badge variant="default" className="text-xs bg-green-600">Downloaded</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-xs">{selectedHub}</Badge>
-                                  )}
-                                </div>
-                                {(() => {
-                                  const task = getDownloadTask(model.path)
-                                  return (
-                                    <>
-                                      <Button 
-                                        className="w-full" 
-                                        size="sm"
-                                        variant={model.downloaded ? "outline" : "default"}
-                                        onClick={() => handleDownload(model.path, model.name)}
-                                        disabled={!!task}
-                                      >
-                                        {task ? (
-                                          <>
-                                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                                            Downloading...
-                                          </>
-                                        ) : model.downloaded ? (
-                                          <>
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Re-download
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Download
-                                          </>
-                                        )}
-                                      </Button>
-                                      {task && (
-                                        <div className="space-y-1">
-                                          <Progress value={task.progress} className="h-1.5" />
-                                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                            <span>{task.downloaded} / {task.total}</span>
+                                  
+                                  {(() => {
+                                    const task = getDownloadTask(model.path)
+                                    if (task) {
+                                      return (
+                                        <div className="space-y-2">
+                                          <div className="flex items-center justify-between text-xs">
+                                            <span className="text-primary animate-pulse font-medium">Downloading...</span>
                                             <span>{task.progress.toFixed(1)}%</span>
                                           </div>
+                                          <Progress value={task.progress} className="h-1.5" />
                                         </div>
-                                      )}
-                                    </>
-                                  )
-                                })()}
-                                <div className="flex gap-2 pt-1">
-                                  <Button variant="outline" size="sm" className="flex-1 text-xs gap-1" onClick={() => goToTrain(model)}>
-                                    <GraduationCap className="w-3 h-3" /> Train
-                                  </Button>
-                                  <Button variant="outline" size="sm" className="flex-1 text-xs gap-1" onClick={() => goToChat(model)}>
-                                    <MessageSquare className="w-3 h-3" /> Chat
-                                  </Button>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {filteredGroup.map((model, idx) => (
-                            <Card 
-                              key={idx} 
-                              className={`card-hover ${model.downloaded ? 'border-green-500/50 bg-green-500/5' : ''}`}
-                            >
-                              <CardContent className="flex items-center justify-between p-4">
-                                <div className="flex items-center gap-4">
-                                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
-                                    model.downloaded ? 'bg-green-500' : 'brand-gradient'
-                                  }`}>
-                                    <Bot className="w-6 h-6 text-white" />
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="font-medium">{model.name}</h3>
-                                      {model.downloaded && (
-                                        <Badge variant="default" className="bg-green-600 text-xs">Downloaded</Badge>
-                                      )}
-                                    </div>
-                                    <p className="text-sm text-muted-foreground truncate max-w-md" title={model.path}>{model.path}</p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                  <Badge variant="secondary">{model.template || 'default'}</Badge>
-                                  <div className="flex gap-1 items-center">
-                                    {(() => {
-                                      const task = getDownloadTask(model.path)
-                                      if (task) {
-                                        return (
-                                          <div className="flex items-center gap-2">
-                                            <Progress value={task.progress} className="w-20 h-1.5" />
-                                            <span className="text-xs text-primary font-medium">{task.progress.toFixed(0)}%</span>
-                                            <Button 
-                                              variant="ghost" 
-                                              size="sm"
-                                              className="h-6 w-6 p-0 text-destructive"
-                                              onClick={() => handleCancelDownload(task.task_id)}
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </Button>
-                                          </div>
-                                        )
-                                      }
+                                      )
+                                    }
+                                    
+                                    if (model.downloaded) {
                                       return (
-                                        <>
+                                        <div className="flex gap-2 pt-1 transition-all animate-in fade-in slide-in-from-bottom-2">
+                                          <Button 
+                                            variant="default" 
+                                            size="sm" 
+                                            className="flex-1 h-9 font-semibold text-xs gap-1.5 shadow-sm hover:shadow-neon transition-all" 
+                                            onClick={() => goToTrain(model)}
+                                          >
+                                            <GraduationCap className="w-3.5 h-3.5" /> Train
+                                          </Button>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="flex-1 h-9 font-semibold text-xs gap-1.5 border-primary/20 hover:border-primary/50 transition-all" 
+                                            onClick={() => goToChat(model)}
+                                          >
+                                            <MessageSquare className="w-3.5 h-3.5" /> Chat
+                                          </Button>
+                                        </div>
+                                      )
+                                    }
+
+                                    return (
+                                      <Button 
+                                        className="w-full h-9 font-semibold text-xs" 
+                                        size="sm"
+                                        variant="default"
+                                        onClick={() => handleDownload(model.path, model.name)}
+                                      >
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Download Now
+                                      </Button>
+                                    )
+                                  })()}
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {filteredGroup.map((model, idx) => (
+                              <Card 
+                                key={idx} 
+                                className={`card-hover transition-all duration-300 ${model.downloaded ? 'border-primary/50 bg-primary/5' : ''}`}
+                              >
+                                <CardContent className="flex items-center justify-between p-4 px-5">
+                                  <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm transition-transform ${
+                                      model.downloaded ? 'bg-primary shadow-neon' : 'brand-gradient'
+                                    }`}>
+                                      <Bot className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <h3 className="font-semibold text-base">{model.name}</h3>
+                                        {model.downloaded && (
+                                          <Badge variant="default" className="text-[10px] uppercase font-bold tracking-wider bg-primary">
+                                            <CheckCircle className="w-3 h-3 mr-1" /> Downloaded
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <p className="text-sm text-muted-foreground truncate max-w-md" title={model.path}>{model.path}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-6">
+                                    <Badge variant="secondary" className="px-3 py-1 text-xs">{model.template || 'default'}</Badge>
+                                    <div className="flex gap-2 items-center">
+                                      {(() => {
+                                        const task = getDownloadTask(model.path)
+                                        if (task) {
+                                          return (
+                                            <div className="flex items-center gap-3">
+                                              <div className="flex flex-col items-end gap-1">
+                                                <span className="text-[10px] text-primary animate-pulse font-bold tracking-wider">DOWNLOADING</span>
+                                                <Progress value={task.progress} className="w-24 h-1.5" />
+                                              </div>
+                                              <span className="text-sm font-bold text-primary w-10">{task.progress.toFixed(0)}%</span>
+                                              <Button 
+                                                variant="ghost" 
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                                                onClick={() => handleCancelDownload(task.task_id)}
+                                              >
+                                                <X className="w-4 h-4" />
+                                              </Button>
+                                            </div>
+                                          )
+                                        }
+                                        
+                                        if (model.downloaded) {
+                                          return (
+                                            <>
+                                              <Button 
+                                                variant="default" 
+                                                size="sm" 
+                                                className="h-9 px-4 font-semibold text-xs gap-2 shadow-sm hover:shadow-neon transition-all" 
+                                                onClick={() => goToTrain(model)}
+                                              >
+                                                <GraduationCap className="w-4 h-4" /> Train
+                                              </Button>
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-9 px-4 font-semibold text-xs gap-2 border-primary/20 hover:border-primary/50 transition-all" 
+                                                onClick={() => goToChat(model)}
+                                              >
+                                                <MessageSquare className="w-4 h-4" /> Chat
+                                              </Button>
+                                            </>
+                                          )
+                                        }
+
+                                        return (
                                           <Button 
                                             size="sm"
-                                            variant={model.downloaded ? "outline" : "default"}
+                                            className="h-9 px-6 font-semibold text-xs gap-2"
+                                            variant="default"
                                             onClick={() => handleDownload(model.path, model.name)}
                                           >
                                             <Download className="w-4 h-4" />
+                                            Download
                                           </Button>
-                                          <Button variant="outline" size="sm" onClick={() => goToTrain(model)}>
-                                            <GraduationCap className="w-4 h-4" />
-                                          </Button>
-                                          <Button variant="outline" size="sm" onClick={() => goToChat(model)}>
-                                            <MessageSquare className="w-4 h-4" />
-                                          </Button>
-                                        </>
-                                      )
-                                    })()}
+                                        )
+                                      })()}
+                                    </div>
                                   </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
                   )
                 })}
-              </div>
+              </Accordion>
             </>
           )}
 
