@@ -28,7 +28,7 @@ if (-not $ready) { exit 1 }
 Write-Host "  [OK] Environment ready" -ForegroundColor Green
 
 # Quick GPU check
-python -c "import torch; print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')" 2>$null
+& "$VENV_PATH\Scripts\python" -c "import torch; print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')" 2>$null
 
 $backendPort = 8000
 $frontendPort = 5173
@@ -42,7 +42,7 @@ Write-Host "Starting services..." -ForegroundColor Cyan
 Write-Host ""
 
 # Launch Backend immediately (don't wait)
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$ROOT\backend'; python main.py" -WindowStyle Normal
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$ROOT\backend'; & '$VENV_PATH\Scripts\python.exe' main.py" -WindowStyle Normal
 
 # Quick check with retry
 $attempts = 0

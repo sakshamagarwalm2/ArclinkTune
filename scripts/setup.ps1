@@ -40,23 +40,29 @@ Write-Host "  OK" -ForegroundColor Green
 
 # Install PyTorch with CUDA first
 Write-Host "[3/7] Installing PyTorch with CUDA..." -ForegroundColor Yellow
-& "$VENV_PATH\Scripts\pip" install --upgrade pip -q
-& "$VENV_PATH\Scripts\pip" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 -q
+& "$VENV_PATH\Scripts\python" -m pip install --upgrade pip -q
+try {
+    & "$VENV_PATH\Scripts\python" -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118 -q
+    Write-Host "  PyTorch with CUDA installed" -ForegroundColor Green
+} catch {
+    Write-Host "  CUDA wheels not available for Python 3.14, installing CPU version..." -ForegroundColor Yellow
+    & "$VENV_PATH\Scripts\python" -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu -q
+}
 Write-Host "  OK" -ForegroundColor Green
 
 # Install LlamaFactory dependencies
 Write-Host "[4/7] Installing LlamaFactory dependencies..." -ForegroundColor Yellow
-& "$VENV_PATH\Scripts\pip" install -q transformers "transformers>=4.55.0,<=5.2.0"
-& "$VENV_PATH\Scripts\pip" install -q accelerate datasets peft trl
-& "$VENV_PATH\Scripts\pip" install -q fastapi uvicorn sse-starlette gradio gradio-client
-& "$VENV_PATH\Scripts\pip" install -q pandas matplotlib scipy sentencepiece tiktoken
-& "$VENV_PATH\Scripts\pip" install -q pyyaml omegaconf safetensors huggingface-hub
-& "$VENV_PATH\Scripts\pip" install -q fire tyro rich packaging
+& "$VENV_PATH\Scripts\python" -m pip install -q transformers "transformers>=4.55.0,<=5.2.0"
+& "$VENV_PATH\Scripts\python" -m pip install -q accelerate datasets peft trl
+& "$VENV_PATH\Scripts\python" -m pip install -q fastapi uvicorn sse-starlette gradio gradio-client
+& "$VENV_PATH\Scripts\python" -m pip install -q pandas matplotlib scipy sentencepiece tiktoken
+& "$VENV_PATH\Scripts\python" -m pip install -q pyyaml omegaconf safetensors huggingface-hub
+& "$VENV_PATH\Scripts\python" -m pip install -q fire tyro rich packaging
 Write-Host "  OK" -ForegroundColor Green
 
 # Install LlamaFactory in editable mode
 Write-Host "[5/7] Installing LlamaFactory..." -ForegroundColor Yellow
-& "$VENV_PATH\Scripts\pip" install -q -e "$ROOT\core\LlamaFactory"
+& "$VENV_PATH\Scripts\python" -m pip install -q -e "$ROOT\core\LlamaFactory"
 Write-Host "  OK" -ForegroundColor Green
 
 # Copy API module from original LlamaFactory if missing
@@ -72,7 +78,7 @@ if ((Test-Path $OriginalAPI) -and (-not (Test-Path "$ForkAPI\app.py"))) {
 
 # Install ArclinkTune backend dependencies
 Write-Host "[7/7] Installing ArclinkTune backend dependencies..." -ForegroundColor Yellow
-& "$VENV_PATH\Scripts\pip" install -q pydantic-settings psutil python-multipart
+& "$VENV_PATH\Scripts\python" -m pip install -q pydantic-settings psutil python-multipart nvidia-ml-py3
 Write-Host "  OK" -ForegroundColor Green
 
 Write-Host ""
