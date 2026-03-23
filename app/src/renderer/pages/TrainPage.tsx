@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,8 +58,8 @@ const PREF_LOSSES = [
   { value: 'simpo', label: 'SimPO' },
 ]
 
-const ROPE_SCALING = ['none', 'linear', 'dynamic', 'yarn', 'llama3']
-const QUANT_BITS = ['none', '8', '4', '3', '2']
+const ROPE_SCALING = [null, 'linear', 'dynamic', 'yarn', 'llama3']
+const QUANT_BITS: (number | null)[] = [null, 8, 4, 3, 2]
 const QUANT_METHODS = ['bnb', 'hqq', 'eetq']
 const BOOSTERS = ['auto', 'flashattn2', 'unsloth', 'liger_kernel']
 const REPORT_TO = ['none', 'wandb', 'mlflow', 'neptune', 'tensorboard', 'trackio']
@@ -86,6 +86,7 @@ interface TrainingConfig {
   bf16: boolean
   fp16: boolean
   pure_bf16: boolean
+  compute_device: string
   lora_rank: number
   lora_alpha: number
   lora_dropout: number
@@ -95,9 +96,9 @@ interface TrainingConfig {
   use_dora: boolean
   pissa_init: boolean
   create_new_adapter: boolean
-  quantization_bit: string
+  quantization_bit: number | null
   quantization_method: string
-  rope_scaling: string
+  rope_scaling: string | null
   val_size: number
   max_samples: number
   neftune_alpha: number
@@ -163,6 +164,7 @@ export function TrainPage() {
     bf16: true,
     fp16: false,
     pure_bf16: false,
+    compute_device: 'auto',
     lora_rank: 8,
     lora_alpha: 16,
     lora_dropout: 0.05,
@@ -172,9 +174,9 @@ export function TrainPage() {
     use_dora: false,
     pissa_init: false,
     create_new_adapter: false,
-    quantization_bit: 'none',
+    quantization_bit: null,
     quantization_method: 'bnb',
-    rope_scaling: 'none',
+    rope_scaling: null,
     val_size: 0,
     max_samples: 100000,
     neftune_alpha: 0,
@@ -216,6 +218,7 @@ export function TrainPage() {
   const [showBrowser, setShowBrowser] = useState(false)
   const [previewCommand, setPreviewCommand] = useState('')
   const [logs, setLogs] = useState<string[]>([])
+  const queryClient = useQueryClient()
 
   const { data: models = [], isLoading: loadingModels } = useQuery<Model[]>({
     queryKey: ['models', 'train'],
@@ -234,6 +237,14 @@ export function TrainPage() {
     queryFn: () => api.training.getDatasets(),
     staleTime: 5 * 60 * 1000,
   })
+
+  const { data: computeDevices = { available: [], recommended: null, details: {} } } = useQuery<any>({
+    queryKey: ['training', 'compute-devices'],
+    queryFn: () => api.training.getComputeDevices(),
+    staleTime: 60000,
+  })
+
+  const [computeDevice, setComputeDevice] = useState('auto')
 
   useEffect(() => {
     if (apiTemplates.length > 0 && templates.length === 0) {
@@ -278,9 +289,9 @@ export function TrainPage() {
     onChange, 
     columns = 3 
   }: { 
-    options: { value: string, label: string }[], 
-    value: string, 
-    onChange: (v: string) => void,
+    options: { value: string | number | null, label: string }[], 
+    value: string | number | null, 
+    onChange: (v: string | number | null) => void,
     columns?: number
   }) => (
     <div className={cn(
@@ -289,7 +300,7 @@ export function TrainPage() {
     )}>
       {options.map(opt => (
         <button
-          key={opt.value}
+          key={String(opt.value)}
           type="button"
           onClick={() => onChange(opt.value)}
           className={cn(
@@ -451,6 +462,98 @@ export function TrainPage() {
 
               <Card>
                 <CardHeader>
+                  <CardTitle className="text-base">Compute Settings</CardTitle>
+                  <CardDescription>Select hardware for training</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Device</label>
+                      <InfoTooltip content="Select the compute device for training." impact="GPU (CUDA) is fastest, CPU is slower but works on any machine." />
+                    </div>
+                    <Select value={computeDevice} onValueChange={setComputeDevice}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select device" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto">
+                          <div className="flex items-center gap-2">
+                            <span>Auto (Recommended)</span>
+                            {computeDevices.recommended === 'cuda' && (
+                              <Badge variant="outline" className="ml-2 text-xs">GPU Detected</Badge>
+                            )}
+                            {computeDevices.recommended === 'cpu' && (
+                              <Badge variant="outline" className="ml-2 text-xs">CPU Only</Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                        {computeDevices.available.map((device: { id: string; name: string; type: string }) => (
+                          <SelectItem key={device.id} value={device.id}>
+                            <div className="flex items-center gap-2">
+                              {device.type === 'GPU' ? (
+                                <Cpu className="w-4 h-4 text-neon-green" />
+                              ) : (
+                                <Cpu className="w-4 h-4 text-muted-foreground" />
+                              )}
+                              <span>{device.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {computeDevices.details?.cuda && (
+                      <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="w-3.5 h-3.5 text-neon-green" />
+                          <span className="font-medium text-neon-green">GPU Ready</span>
+                        </div>
+                        <div className="mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                          <span>VRAM:</span>
+                          <span>{computeDevices.details.cuda.vram_gb} GB</span>
+                          <span>Compute:</span>
+                          <span>SM {computeDevices.details.cuda.compute_capability}</span>
+                        </div>
+                      </div>
+                    )}
+                    {computeDevices.recommended === 'cpu' && !computeDevices.details?.cuda && (
+                      <div className="text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                        <div className="flex items-center gap-2">
+                          <Cpu className="w-3.5 h-3.5 text-amber-500" />
+                          <span className="font-medium text-amber-500">No GPU Detected</span>
+                        </div>
+                        <p className="mt-1">Training will use CPU only. This will be significantly slower.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Compute Type</label>
+                    <SegmentedControl
+                      options={[
+                        { value: 'auto', label: 'Auto' },
+                        { value: 'bf16', label: 'BF16' },
+                        { value: 'fp16', label: 'FP16' },
+                        { value: 'fp32', label: 'FP32' },
+                      ]}
+                      value={config.bf16 ? 'bf16' : config.fp16 ? 'fp16' : 'fp32'}
+                      onChange={(v) => {
+                        updateConfig('bf16', v === 'bf16')
+                        updateConfig('fp16', v === 'fp16')
+                        updateConfig('pure_bf16', false)
+                      }}
+                      columns={4}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {computeDevice === 'cpu' || computeDevice === 'auto' && !computeDevices.details?.cuda 
+                        ? 'CPU mode: FP32 recommended for stability'
+                        : 'BF16 offers best quality/speed on modern GPUs'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle className="text-base">Model Settings</CardTitle>
                   <CardDescription>Model selection and template</CardDescription>
                 </CardHeader>
@@ -566,7 +669,7 @@ export function TrainPage() {
                         <InfoTooltip content="Precision level of the model weights (4-bit, 8-bit)." impact="Lower bits save VRAM at the cost of slight accuracy degradation." />
                       </div>
                       <SegmentedControl
-                        options={QUANT_BITS.map(b => ({ value: b, label: b === 'none' ? 'None' : `${b}-bit` }))}
+                        options={QUANT_BITS.map(b => ({ value: b, label: b === null ? 'None' : `${b}-bit` }))}
                         value={config.quantization_bit}
                         onChange={(v) => updateConfig('quantization_bit', v)}
                       />
@@ -604,7 +707,7 @@ export function TrainPage() {
                         <InfoTooltip content="Technique to expand the model's effective context window." impact="Enables processing of much longer text sequences during training." />
                       </div>
                       <SegmentedControl
-                        options={ROPE_SCALING.map(r => ({ value: r, label: r === 'none' ? 'None' : r }))}
+                        options={ROPE_SCALING.map(r => ({ value: r, label: r === null ? 'None' : r }))}
                         value={config.rope_scaling}
                         onChange={(v) => updateConfig('rope_scaling', v)}
                       />
@@ -1409,6 +1512,7 @@ export function TrainPage() {
             updateConfig('dataset', name)
             if (dir) updateConfig('dataset_dir', dir)
             setShowBrowser(false)
+            queryClient.invalidateQueries({ queryKey: ['training', 'datasets'] })
           }}
           onClose={() => setShowBrowser(false)}
         />

@@ -1,16 +1,20 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
+import os
 
 router = APIRouter()
+
 
 class Message(BaseModel):
     role: str
     content: str
 
+
 from services.chat_service import get_chat_service
 
 chat_service = get_chat_service()
+
 
 @router.post("/load")
 async def load_model(body: dict):
@@ -22,9 +26,34 @@ async def load_model(body: dict):
     infer_dtype = str(body.get("infer_dtype", "auto"))
     system_prompt = body.get("system_prompt")
     enable_thinking = body.get("enable_thinking")
-    
+
+    print(
+        f"[ChatRouter] /load called with model_path: {model_path}, template: {template}"
+    )
+
+    if not model_path:
+        return {
+            "success": False,
+            "error": "No model path provided",
+            "details": "Please provide a model path",
+        }
+
+    if (
+        not os.path.exists(model_path)
+        and not model_path.startswith("meta-llama/")
+        and not model_path.startswith("Qwen/")
+        and not model_path.startswith("/")
+    ):
+        return {
+            "success": False,
+            "error": "Invalid model path",
+            "details": f"Model path does not exist and is not a HuggingFace path: {model_path}",
+        }
+
     result = chat_service.start_api(
-        model_path, template, finetuning_type,
+        model_path,
+        template,
+        finetuning_type,
         checkpoint_path=checkpoint_path,
         infer_backend=infer_backend,
         infer_dtype=infer_dtype,
@@ -33,10 +62,12 @@ async def load_model(body: dict):
     )
     return result
 
+
 @router.post("/unload")
 async def unload_model():
     chat_service.stop_api()
     return {"success": True}
+
 
 @router.post("/chat")
 async def chat(body: dict):
@@ -45,11 +76,20 @@ async def chat(body: dict):
     temperature = body.get("temperature", 0.95)
     top_p = body.get("top_p", 0.7)
     repetition_penalty = body.get("repetition_penalty", 1.0)
-    
+
     status = chat_service.get_status()
+    print(
+        f"[ChatRouter] /chat called. Status: loaded={status['loaded']}, process_running={status.get('process_running', False)}, api_responding={status.get('api_responding', False)}"
+    )
+
     if not status["loaded"]:
-        return {"error": "No model loaded"}
-    
+        error_msg = "No model loaded. Please load a model first."
+        if status.get("error"):
+            error_msg = f"Model not ready. Error: {status['error'][:200]}"
+        elif status.get("process_running") and not status.get("api_responding"):
+            error_msg = "Model process is running but API is not responding. Try reloading the model."
+        return {"error": error_msg}
+
     response = chat_service.chat(
         messages=messages,
         max_tokens=max_tokens,
@@ -57,8 +97,9 @@ async def chat(body: dict):
         top_p=top_p,
         repetition_penalty=repetition_penalty,
     )
-    
+
     return response
+
 
 @router.get("/status")
 async def get_chat_status():

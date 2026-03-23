@@ -192,6 +192,40 @@ function setupIpcHandlers(mainWindow2) {
   });
   electron.ipcMain.handle("window:close", () => mainWindow2 == null ? void 0 : mainWindow2.close());
   electron.ipcMain.handle("window:isMaximized", () => (mainWindow2 == null ? void 0 : mainWindow2.isMaximized()) ?? false);
+  electron.ipcMain.handle("dialog:openFile", async (_, options) => {
+    try {
+      const result = await electron.dialog.showOpenDialog(mainWindow2, {
+        title: (options == null ? void 0 : options.title) || "Select File",
+        filters: (options == null ? void 0 : options.filters) || [
+          { name: "Dataset Files", extensions: ["json", "jsonl", "csv"] },
+          { name: "All Files", extensions: ["*"] }
+        ],
+        defaultPath: (options == null ? void 0 : options.defaultPath) || os.homedir(),
+        properties: (options == null ? void 0 : options.multiSelections) ? ["openFile", "multiSelections"] : ["openFile"]
+      });
+      return {
+        canceled: result.canceled,
+        filePaths: result.filePaths
+      };
+    } catch (error) {
+      return { canceled: true, filePaths: [], error: error.message };
+    }
+  });
+  electron.ipcMain.handle("dialog:openDirectory", async (_, options) => {
+    try {
+      const result = await electron.dialog.showOpenDialog(mainWindow2, {
+        title: (options == null ? void 0 : options.title) || "Select Directory",
+        defaultPath: (options == null ? void 0 : options.defaultPath) || os.homedir(),
+        properties: ["openDirectory"]
+      });
+      return {
+        canceled: result.canceled,
+        filePaths: result.filePaths
+      };
+    } catch (error) {
+      return { canceled: true, filePaths: [], error: error.message };
+    }
+  });
 }
 function createAppMenu() {
   const isMac = process.platform === "darwin";

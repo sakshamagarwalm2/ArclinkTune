@@ -40,6 +40,10 @@ const electronAPI = {
     maximize: () => electron.ipcRenderer.invoke("window:maximize"),
     close: () => electron.ipcRenderer.invoke("window:close"),
     isMaximized: () => electron.ipcRenderer.invoke("window:isMaximized")
+  },
+  dialog: {
+    openFile: (options) => electron.ipcRenderer.invoke("dialog:openFile", options),
+    openDirectory: (options) => electron.ipcRenderer.invoke("dialog:openDirectory", options)
   }
 };
 electron.contextBridge.exposeInMainWorld("electronAPI", electronAPI);

@@ -33,7 +33,7 @@ export function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileMenuOpen?
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-50 md:relative h-full flex flex-col transition-all duration-300 ease-out shadow-2xl md:shadow-none',
+        'fixed inset-y-0 left-0 z-50 md:z-0 md:relative h-full flex flex-col transition-all duration-300 ease-out shadow-2xl md:shadow-none',
         'bg-card/95 dark:bg-card/80 backdrop-blur-xl md:bg-card/90 md:dark:bg-card/60',
         'border-r border-border/50 dark:border-primary/5',
         collapsed ? 'w-[72px]' : 'w-64',

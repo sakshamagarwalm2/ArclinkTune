@@ -124,6 +124,41 @@ function GPUCard({ gpu, isPaused, healthStatus, healthResult }: { gpu: GPUStats;
                 </div>
               )}
             </div>
+            
+            {(healthResult.venv_pytorch_version || healthResult.venv_cuda_available !== undefined) && (
+              <div className="mt-3 pt-2 border-t border-border/30">
+                <p className="text-xs text-muted-foreground mb-1.5">LLaMAFactory Environment:</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  {healthResult.venv_pytorch_version && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">PyTorch:</span>
+                      <span className="font-medium">{healthResult.venv_pytorch_version}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">VEnv CUDA:</span>
+                    <span className={healthResult.venv_cuda_available ? 'text-neon-green font-medium' : 'text-destructive font-medium'}>
+                      {healthResult.venv_cuda_available ? 'Available' : 'Not Available'}
+                    </span>
+                  </div>
+                  {healthResult.venv_cuda_version && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">VEnv CUDA Ver:</span>
+                      <span className="font-medium">{healthResult.venv_cuda_version}</span>
+                    </div>
+                  )}
+                  {healthResult.details.venv_gpu_name && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">VEnv GPU:</span>
+                      <span className="font-medium truncate max-w-[100px]" title={healthResult.details.venv_gpu_name}>
+                        {healthResult.details.venv_gpu_name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
             {healthResult.error && (
               <div className="mt-2 text-xs text-destructive flex items-start gap-1">
                 <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />

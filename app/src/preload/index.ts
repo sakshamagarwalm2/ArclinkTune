@@ -37,6 +37,18 @@ export interface ElectronAPI {
     close: () => void;
     isMaximized: () => Promise<boolean>;
   };
+  dialog: {
+    openFile: (options?: {
+      title?: string;
+      filters?: { name: string; extensions: string[] }[];
+      defaultPath?: string;
+      multiSelections?: boolean;
+    }) => Promise<{ canceled: boolean; filePaths: string[]; error?: string }>;
+    openDirectory: (options?: {
+      title?: string;
+      defaultPath?: string;
+    }) => Promise<{ canceled: boolean; filePaths: string[]; error?: string }>;
+  };
 }
 
 const electronAPI: ElectronAPI = {
@@ -79,6 +91,10 @@ const electronAPI: ElectronAPI = {
     maximize: () => ipcRenderer.invoke('window:maximize'),
     close: () => ipcRenderer.invoke('window:close'),
     isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  },
+  dialog: {
+    openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
+    openDirectory: (options) => ipcRenderer.invoke('dialog:openDirectory', options),
   },
 };
 

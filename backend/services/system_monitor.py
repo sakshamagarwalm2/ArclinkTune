@@ -278,6 +278,9 @@ def check_gpu_health():
         "memory_test_passed": False,
         "error": None,
         "details": {},
+        "venv_pytorch_version": None,
+        "venv_cuda_available": False,
+        "venv_cuda_version": None,
     }
 
     try:
@@ -324,6 +327,70 @@ def check_gpu_health():
             result["error"] = (
                 "CUDA is not available. Make sure PyTorch with CUDA support is installed."
             )
+
+        from config import get_settings
+
+        settings = get_settings()
+        venv_python = settings.get_venv_python()
+
+        if os.path.exists(venv_python):
+            try:
+                import subprocess
+
+                venv_check = subprocess.run(
+                    [
+                        venv_python,
+                        "-c",
+                        "import torch; print(f'{torch.__version__}|{torch.cuda.is_available()}|{torch.version.cuda or \"none\"}')",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if venv_check.returncode == 0 and venv_check.stdout.strip():
+                    parts = venv_check.stdout.strip().split("|")
+                    if len(parts) >= 3:
+                        result["venv_pytorch_version"] = parts[0]
+                        result["venv_cuda_available"] = parts[1] == "True"
+                        result["venv_cuda_version"] = (
+                            parts[2] if parts[2] != "none" else None
+                        )
+
+                        result["details"]["venv_path"] = venv_python
+                        result["details"]["venv_gpu_count"] = 0
+
+                        if result["venv_cuda_available"]:
+                            try:
+                                venv_gpu_check = subprocess.run(
+                                    [
+                                        venv_python,
+                                        "-c",
+                                        "import torch; print(torch.cuda.device_count()); print(torch.cuda.get_device_name(0))",
+                                    ],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=10,
+                                )
+                                if venv_gpu_check.returncode == 0:
+                                    gpu_lines = venv_gpu_check.stdout.strip().split(
+                                        "\n"
+                                    )
+                                    if len(gpu_lines) >= 2:
+                                        result["details"]["venv_gpu_count"] = int(
+                                            gpu_lines[0]
+                                        )
+                                        result["details"]["venv_gpu_name"] = gpu_lines[
+                                            1
+                                        ]
+                            except:
+                                pass
+            except Exception as e:
+                result["details"]["venv_check_error"] = str(e)
+        else:
+            result["details"]["venv_path_error"] = (
+                f"Venv Python not found at: {venv_python}"
+            )
+
     except ImportError:
         result["error"] = "PyTorch not installed. Install with: pip install torch"
     except Exception as e:

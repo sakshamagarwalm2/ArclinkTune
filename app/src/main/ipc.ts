@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, app, shell } from 'electron';
+import { ipcMain, BrowserWindow, app, shell, dialog } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import path from 'path';
 import os from 'os';
@@ -197,4 +197,52 @@ export function setupIpcHandlers(mainWindow: BrowserWindow) {
   });
   ipcMain.handle('window:close', () => mainWindow?.close());
   ipcMain.handle('window:isMaximized', () => mainWindow?.isMaximized() ?? false);
+
+  ipcMain.handle('dialog:openFile', async (_, options?: {
+    title?: string;
+    filters?: { name: string; extensions: string[] }[];
+    defaultPath?: string;
+    multiSelections?: boolean;
+  }) => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow!, {
+        title: options?.title || 'Select File',
+        filters: options?.filters || [
+          { name: 'Dataset Files', extensions: ['json', 'jsonl', 'csv'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+        defaultPath: options?.defaultPath || os.homedir(),
+        properties: options?.multiSelections 
+          ? ['openFile', 'multiSelections'] 
+          : ['openFile'],
+      });
+      
+      return {
+        canceled: result.canceled,
+        filePaths: result.filePaths,
+      };
+    } catch (error: any) {
+      return { canceled: true, filePaths: [], error: error.message };
+    }
+  });
+
+  ipcMain.handle('dialog:openDirectory', async (_, options?: {
+    title?: string;
+    defaultPath?: string;
+  }) => {
+    try {
+      const result = await dialog.showOpenDialog(mainWindow!, {
+        title: options?.title || 'Select Directory',
+        defaultPath: options?.defaultPath || os.homedir(),
+        properties: ['openDirectory'],
+      });
+      
+      return {
+        canceled: result.canceled,
+        filePaths: result.filePaths,
+      };
+    } catch (error: any) {
+      return { canceled: true, filePaths: [], error: error.message };
+    }
+  });
 }

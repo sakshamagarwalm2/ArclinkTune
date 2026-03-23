@@ -6,8 +6,9 @@ Provides endpoints to browse files, detect format, and manage dataset_info.json.
 import json
 import os
 import csv
+import shutil
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -27,6 +28,7 @@ DATA_CONFIG = "dataset_info.json"
 
 
 # ─── Request/Response Models ─────────────────────────────────────────────────
+
 
 class BrowseRequest(BaseModel):
     path: Optional[str] = None  # None = start from data_dir
@@ -96,6 +98,7 @@ class DatasetInfoResponse(BaseModel):
 
 
 # ─── Helper Functions ────────────────────────────────────────────────────────
+
 
 def _get_data_dir() -> Path:
     """Get the user data directory, creating it if needed."""
@@ -188,7 +191,9 @@ def _read_samples(file_path: Path, max_lines: int = 20) -> List[Dict[str, Any]]:
     return []
 
 
-def _detect_format(samples: List[Dict[str, Any]]) -> tuple[str, Dict[str, str], Dict[str, str]]:
+def _detect_format(
+    samples: List[Dict[str, Any]],
+) -> tuple[str, Dict[str, str], Dict[str, str]]:
     """Detect data format and map columns.
 
     Returns:
@@ -206,8 +211,16 @@ def _detect_format(samples: List[Dict[str, Any]]) -> tuple[str, Dict[str, str], 
             first_msg = conv[0]
             if isinstance(first_msg, dict):
                 # Detect tag names
-                role_key = "from" if "from" in first_msg else ("role" if "role" in first_msg else None)
-                content_key = "value" if "value" in first_msg else ("content" if "content" in first_msg else None)
+                role_key = (
+                    "from"
+                    if "from" in first_msg
+                    else ("role" if "role" in first_msg else None)
+                )
+                content_key = (
+                    "value"
+                    if "value" in first_msg
+                    else ("content" if "content" in first_msg else None)
+                )
                 if role_key and content_key:
                     tags = {"role_tag": role_key, "content_tag": content_key}
                     # Detect user/assistant tags
@@ -247,18 +260,30 @@ def _detect_format(samples: List[Dict[str, Any]]) -> tuple[str, Dict[str, str], 
         msg = first["messages"]
         if isinstance(msg, list) and len(msg) > 0:
             first_msg = msg[0]
-            if isinstance(first_msg, dict) and "role" in first_msg and "content" in first_msg:
-                return "sharegpt", {"messages": "messages"}, {"role_tag": "role", "content_tag": "content"}
+            if (
+                isinstance(first_msg, dict)
+                and "role" in first_msg
+                and "content" in first_msg
+            ):
+                return (
+                    "sharegpt",
+                    {"messages": "messages"},
+                    {"role_tag": "role", "content_tag": "content"},
+                )
 
     # Fallback: try to detect any text-like column
-    text_columns = [k for k in first.keys() if isinstance(first[k], str) and len(first[k]) > 10]
+    text_columns = [
+        k for k in first.keys() if isinstance(first[k], str) and len(first[k]) > 10
+    ]
     if len(text_columns) >= 2:
         return "alpaca", {"prompt": text_columns[0], "response": text_columns[-1]}, {}
 
     return "unknown", {}, {}
 
 
-def _get_column_samples(samples: List[Dict[str, Any]], columns: Dict[str, str]) -> List[DetectedColumn]:
+def _get_column_samples(
+    samples: List[Dict[str, Any]], columns: Dict[str, str]
+) -> List[DetectedColumn]:
     """Get sample values for each detected column."""
     result = []
     for mapped_name, actual_name in columns.items():
@@ -272,11 +297,14 @@ def _get_column_samples(samples: List[Dict[str, Any]], columns: Dict[str, str]) 
                     values.append(str(val)[:80])
             if len(values) >= 3:
                 break
-        result.append(DetectedColumn(name=f"{mapped_name} → {actual_name}", sample_values=values))
+        result.append(
+            DetectedColumn(name=f"{mapped_name} → {actual_name}", sample_values=values)
+        )
     return result
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
+
 
 @router.post("/browse", response_model=BrowseResponse)
 async def browse_files(request: BrowseRequest):
@@ -317,11 +345,15 @@ async def browse_files(request: BrowseRequest):
 
         entry = FileEntry(
             name=item.name,
-            path=str(item.relative_to(data_dir_resolved)) if item.is_relative_to(data_dir_resolved) else str(item),
+            path=str(item.relative_to(data_dir_resolved))
+            if item.is_relative_to(data_dir_resolved)
+            else str(item),
             is_directory=item.is_dir(),
             size=item.stat().st_size if item.is_file() else None,
             extension=item.suffix if item.is_file() else None,
-            is_supported=item.suffix.lower() in SUPPORTED_EXTENSIONS if item.is_file() else True,
+            is_supported=item.suffix.lower() in SUPPORTED_EXTENSIONS
+            if item.is_file()
+            else True,
         )
         entries.append(entry)
 
@@ -333,7 +365,9 @@ async def browse_files(request: BrowseRequest):
             parent = ""
 
     return BrowseResponse(
-        current_path=str(target.relative_to(data_dir_resolved)) if target.is_relative_to(data_dir_resolved) else "",
+        current_path=str(target.relative_to(data_dir_resolved))
+        if target.is_relative_to(data_dir_resolved)
+        else "",
         parent_path=parent,
         entries=entries,
         data_dir=str(data_dir_resolved),
@@ -347,7 +381,9 @@ async def analyze_dataset(request: AnalyzeRequest):
     file_path = data_dir / request.file_path
 
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
+        raise HTTPException(
+            status_code=404, detail=f"File not found: {request.file_path}"
+        )
 
     ext = file_path.suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
@@ -408,7 +444,9 @@ async def configure_dataset(request: ConfigureRequest):
     file_path = data_dir / request.file_path
 
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
+        raise HTTPException(
+            status_code=404, detail=f"File not found: {request.file_path}"
+        )
 
     # Load existing dataset_info
     info = _load_dataset_info()
@@ -445,13 +483,15 @@ async def get_dataset_info():
     datasets = []
     for name, entry in info.items():
         if isinstance(entry, dict):
-            datasets.append(DatasetInfoEntry(
-                name=name,
-                file_name=entry.get("file_name", ""),
-                formatting=entry.get("formatting", "alpaca"),
-                columns=entry.get("columns", {}),
-                tags=entry.get("tags", {}),
-            ))
+            datasets.append(
+                DatasetInfoEntry(
+                    name=name,
+                    file_name=entry.get("file_name", ""),
+                    formatting=entry.get("formatting", "alpaca"),
+                    columns=entry.get("columns", {}),
+                    tags=entry.get("tags", {}),
+                )
+            )
 
     return DatasetInfoResponse(
         datasets=datasets,
@@ -465,7 +505,9 @@ async def delete_dataset_entry(dataset_name: str):
     info = _load_dataset_info()
 
     if dataset_name not in info:
-        raise HTTPException(status_code=404, detail=f"Dataset '{dataset_name}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Dataset '{dataset_name}' not found"
+        )
 
     del info[dataset_name]
     _save_dataset_info(info)
@@ -482,11 +524,354 @@ async def get_supported_formats():
             "alpaca": {
                 "description": "Instruction-based format",
                 "columns": ["instruction", "input", "output"],
+                "example": {
+                    "instruction": "What is the capital of France?",
+                    "input": "",
+                    "output": "Paris",
+                },
             },
             "sharegpt": {
                 "description": "Conversation-based format",
                 "columns": ["conversations (with from/value pairs)"],
+                "example": {
+                    "conversations": [
+                        {"from": "human", "value": "Hello"},
+                        {"from": "gpt", "value": "Hi there!"},
+                    ]
+                },
             },
         },
         "config_file": DATA_CONFIG,
+    }
+
+
+# ─── HuggingFace Dataset Endpoints ─────────────────────────────────────────────
+
+
+@router.get("/hf/search")
+async def search_hf_datasets(query: str = "", limit: int = 20):
+    """Search HuggingFace datasets by query."""
+    try:
+        from huggingface_hub import HfApi
+
+        api = HfApi()
+
+        datasets = []
+        for ds in api.list_datasets(
+            search=query if query else None,
+            limit=limit,
+        ):
+            datasets.append(
+                {
+                    "id": ds.id,
+                    "name": ds.id.split("/")[-1],
+                    "author": ds.id.split("/")[0] if "/" in ds.id else "",
+                    "downloads": ds.downloads,
+                    "likes": getattr(ds, "likes", 0),
+                    "tags": getattr(ds, "tags", [])[:10]
+                    if hasattr(ds, "tags") and ds.tags
+                    else [],
+                    "task": getattr(ds, "task_categories", [])
+                    if hasattr(ds, "task_categories")
+                    else [],
+                    "created_at": str(ds.created_at)
+                    if hasattr(ds, "created_at") and ds.created_at
+                    else None,
+                }
+            )
+
+        return {"datasets": datasets, "total": len(datasets)}
+    except ImportError:
+        raise HTTPException(status_code=500, detail="huggingface_hub not installed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"HF search failed: {str(e)}")
+
+
+@router.get("/hf/{repo_id}")
+async def get_hf_dataset_info(repo_id: str):
+    """Get detailed info about a HuggingFace dataset."""
+    try:
+        from huggingface_hub import HfApi
+
+        api = HfApi()
+
+        try:
+            info = api.dataset_info(repo_id)
+
+            return {
+                "id": info.id,
+                "name": info.id.split("/")[-1],
+                "author": info.id.split("/")[0] if "/" in info.id else "",
+                "downloads": info.downloads,
+                "likes": getattr(info, "likes", 0),
+                "tags": getattr(info, "tags", []),
+                "task_categories": getattr(info, "task_categories", []),
+                "card_data": getattr(info, "card_data", {}),
+                "created_at": str(info.created_at)
+                if hasattr(info, "created_at") and info.created_at
+                else None,
+                "last_modified": str(info.last_modified)
+                if hasattr(info, "last_modified") and info.last_modified
+                else None,
+                "siblings": [
+                    {"rfilename": s.rfilename, "size": getattr(s, "size", 0)}
+                    for s in getattr(info, "siblings", [])[:20]
+                ],
+            }
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=f"Dataset not found: {repo_id}")
+    except ImportError:
+        raise HTTPException(status_code=500, detail="huggingface_hub not installed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get dataset info: {str(e)}"
+        )
+
+
+@router.get("/hf/{repo_id}/preview")
+async def preview_hf_dataset(repo_id: str, split: str = "train", rows: int = 5):
+    """Preview samples from a HuggingFace dataset."""
+    try:
+        from datasets import load_dataset
+
+        try:
+            ds = load_dataset(
+                repo_id, split=split, streaming=True, trust_remote_code=True
+            )
+
+            samples = []
+            for i, row in enumerate(ds):
+                if i >= rows:
+                    break
+                samples.append(
+                    {
+                        k: str(v)[:200] if isinstance(v, str) else v
+                        for k, v in row.items()
+                    }
+                )
+
+            return {
+                "repo_id": repo_id,
+                "split": split,
+                "samples": samples,
+                "features": list(samples[0].keys()) if samples else [],
+            }
+        except Exception as e:
+            raise HTTPException(
+                status_code=400, detail=f"Failed to load dataset: {str(e)}"
+            )
+    except ImportError:
+        raise HTTPException(status_code=500, detail="datasets library not installed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
+
+
+@router.post("/hf/{repo_id}/download")
+async def download_hf_dataset(
+    repo_id: str, splits: Optional[str] = None, max_size: Optional[int] = None
+):
+    """Download a HuggingFace dataset to local data folder."""
+    import tempfile
+    import shutil
+
+    try:
+        from datasets import load_dataset
+        import json
+
+        data_dir = _get_data_dir()
+        target_dir = data_dir / repo_id.replace("/", "_")
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        split_list = splits.split(",") if splits else None
+
+        config_path = data_dir / DATA_CONFIG
+
+        info = _load_dataset_info()
+
+        dataset_entry = {
+            "hf_hub_url": repo_id,
+            "formatting": "alpaca",
+            "description": f"Downloaded from HuggingFace: {repo_id}",
+        }
+
+        if split_list:
+            dataset_entry["split"] = ",".join(split_list)
+
+        info[repo_id.replace("/", "_")] = dataset_entry
+        _save_dataset_info(info)
+
+        return {
+            "success": True,
+            "message": f"Dataset '{repo_id}' configured. It will be downloaded when training starts.",
+            "dataset_name": repo_id.replace("/", "_"),
+            "config_path": str(config_path),
+        }
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=f"Missing library: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+@router.post("/hf/validate-format")
+async def validate_hf_format(repo_id: str, split: str = "train"):
+    """Analyze the format of a HuggingFace dataset and suggest column mappings."""
+    try:
+        from datasets import load_dataset
+
+        try:
+            ds = load_dataset(
+                repo_id, split=split, streaming=True, trust_remote_code=True
+            )
+
+            samples = []
+            for i, row in enumerate(ds):
+                if i >= 10:
+                    break
+                samples.append(row)
+
+            if not samples:
+                return {
+                    "format": "unknown",
+                    "columns": {},
+                    "suggestion": "Dataset appears to be empty",
+                }
+
+            first = samples[0]
+
+            detected_format = "unknown"
+            columns = {}
+
+            if "conversations" in first:
+                detected_format = "sharegpt"
+                columns = {"messages": "conversations"}
+            elif "messages" in first:
+                detected_format = "sharegpt"
+                columns = {"messages": "messages"}
+            elif "instruction" in first and "output" in first:
+                detected_format = "alpaca"
+                columns = {"prompt": "instruction", "response": "output"}
+                if "input" in first:
+                    columns["query"] = "input"
+            elif "question" in first and "answer" in first:
+                detected_format = "alpaca"
+                columns = {"prompt": "question", "response": "answer"}
+
+            if detected_format == "unknown":
+                text_cols = [
+                    k for k, v in first.items() if isinstance(v, str) and len(v) > 10
+                ]
+                if len(text_cols) >= 2:
+                    detected_format = "alpaca"
+                    columns = {"prompt": text_cols[0], "response": text_cols[-1]}
+
+            return {
+                "format": detected_format,
+                "columns": columns,
+                "available_columns": list(first.keys()),
+                "suggestion": f"Detected {detected_format} format with columns: {', '.join(columns.values())}"
+                if columns
+                else "Could not auto-detect format. Please map columns manually.",
+            }
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to analyze: {str(e)}")
+    except ImportError:
+        raise HTTPException(status_code=500, detail="datasets library not installed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
+
+
+# ─── Local File Validation ─────────────────────────────────────────────────────
+
+
+@router.post("/validate-local-path")
+async def validate_local_path(request: dict):
+    """Validate a local file path and return its info."""
+    file_path = request.get("path", "")
+
+    if not file_path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    path = Path(file_path)
+
+    result = {
+        "path": file_path,
+        "exists": path.exists(),
+        "is_file": path.is_file() if path.exists() else False,
+        "is_supported": False,
+        "extension": None,
+        "size_bytes": 0,
+        "error": None,
+    }
+
+    if path.exists() and path.is_file():
+        result["extension"] = path.suffix.lower()
+        result["is_supported"] = result["extension"] in SUPPORTED_EXTENSIONS
+        result["size_bytes"] = path.stat().st_size
+
+        if result["is_supported"]:
+            samples = _read_samples(path, max_lines=5)
+            formatting, columns, tags = _detect_format(samples)
+            result["format"] = formatting
+            result["columns"] = columns
+            result["preview"] = samples[:3]
+    else:
+        result["error"] = "File not found or is not a file"
+
+    return result
+
+
+@router.post("/copy-to-data")
+async def copy_file_to_data(request: dict):
+    """Copy a local file to the app's data directory."""
+    file_path = request.get("path", "")
+
+    if not file_path:
+        raise HTTPException(status_code=400, detail="Path is required")
+
+    source = Path(file_path)
+
+    if not source.exists() or not source.is_file():
+        raise HTTPException(status_code=404, detail="Source file not found")
+
+    ext = source.suffix.lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext}. Supported: {', '.join(SUPPORTED_EXTENSIONS)}",
+        )
+
+    data_dir = _get_data_dir()
+    dest = data_dir / source.name
+
+    shutil.copy2(source, dest)
+
+    samples = _read_samples(dest, max_lines=20)
+    formatting, columns, tags = _detect_format(samples)
+
+    info = _load_dataset_info()
+    dataset_name = source.stem.replace(" ", "_").replace("-", "_").lower()
+
+    info[dataset_name] = {
+        "file_name": source.name,
+        "formatting": formatting,
+        "columns": columns,
+    }
+
+    if tags:
+        info[dataset_name]["tags"] = tags
+
+    _save_dataset_info(info)
+
+    return {
+        "success": True,
+        "message": f"File copied to data directory and configured",
+        "dataset_name": dataset_name,
+        "format": formatting,
+        "relative_path": source.name,
     }

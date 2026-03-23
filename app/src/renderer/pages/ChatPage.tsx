@@ -40,6 +40,7 @@ export function ChatPage() {
   const [isModelLoaded, setIsModelLoaded] = useState(false)
   const [loadError, setLoadError] = useState<{summary: string; details: string} | null>(null)
   const [showErrorDetails, setShowErrorDetails] = useState(false)
+  const [loadProgress, setLoadProgress] = useState<string>('')
   
   const [modelPath, setModelPath] = useState('')
   const [finetuningType, setFinetuningType] = useState('lora')
@@ -94,6 +95,26 @@ export function ChatPage() {
     }
   }, [selectedModel])
 
+  useEffect(() => {
+    if (!isModelLoaded) return
+    
+    const checkStatus = async () => {
+      try {
+        const status = await api.chat.getStatus() as { loaded: boolean; api_responding?: boolean }
+        if (!status.loaded || !status.api_responding) {
+          console.log('[ChatPage] Model no longer loaded, updating state')
+          setIsModelLoaded(false)
+        }
+      } catch (e) {
+        console.log('[ChatPage] Status check failed:', e)
+        setIsModelLoaded(false)
+      }
+    }
+    
+    const interval = setInterval(checkStatus, 10000)
+    return () => clearInterval(interval)
+  }, [isModelLoaded])
+
   const handleModelSelect = (path: string) => {
     // Check hub models first
     const hubModel = models.find(m => m.path === path)
@@ -144,17 +165,21 @@ export function ChatPage() {
         skip_special_tokens: skipSpecialTokens,
       }) as { content?: string; error?: string }
       
-      console.log('Chat response:', response)
+      console.log('[ChatPage] Chat response:', response)
       
       if (response.error) {
+        console.error('[ChatPage] Chat error:', response.error)
         setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }])
+        if (response.error.includes('not loaded') || response.error.includes('not responding') || response.error.includes('crashed')) {
+          setIsModelLoaded(false)
+        }
       } else if (response.content) {
         setMessages(prev => [...prev, { role: 'assistant', content: response.content! }])
       } else {
         setMessages(prev => [...prev, { role: 'assistant', content: `Error: Unexpected response format: ${JSON.stringify(response)}` }])
       }
     } catch (error: any) {
-      console.error('Chat error:', error)
+      console.error('[ChatPage] Chat exception:', error)
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${error?.message || 'Failed to get response'}` }])
     } finally {
       setIsLoading(false)
@@ -167,10 +192,26 @@ export function ChatPage() {
       return
     }
     
+    console.log('[ChatPage] ============================================')
+    console.log('[ChatPage] loadModel() called')
+    console.log('[ChatPage]   modelPath:', modelPath)
+    console.log('[ChatPage]   template:', template)
+    console.log('[ChatPage]   finetuningType:', finetuningType)
+    console.log('[ChatPage]   checkpointPath:', checkpointPath || '(none)')
+    console.log('[ChatPage]   inferBackend:', inferBackend)
+    console.log('[ChatPage]   inferDtype:', inferDtype)
+    console.log('[ChatPage]   enableThinking:', enableThinking)
+    console.log('[ChatPage] ============================================')
+    
     setLoadError(null)
     setShowErrorDetails(false)
     setIsLoading(true)
+    setLoadProgress('Initializing model loading...')
+    
     try {
+      setLoadProgress('Sending request to backend...')
+      console.log('[ChatPage] Sending load request to API...')
+      
       const result = await api.chat.load({ 
         model_path: modelPath,
         template: template,
@@ -180,29 +221,46 @@ export function ChatPage() {
         infer_dtype: inferDtype,
         system_prompt: systemPrompt || undefined,
         enable_thinking: enableThinking,
-      }) as { success: boolean; error?: string; details?: string }
-      console.log('Load result:', result)
+      }) as { success: boolean; error?: string; details?: string; already_loaded?: boolean }
+      
+      console.log('[ChatPage] Load response received:', result)
+      setLoadProgress('Processing response...')
       
       if (result.success) {
         setIsModelLoaded(true)
+        setLoadProgress('')
         setMessages(prev => [...prev, { 
           role: 'system', 
           content: `Model "${modelPath}" loaded successfully. You can now start chatting.` 
         }])
         setLoadError(null)
+        console.log('[ChatPage] Model loaded successfully!')
+      } else if (result.already_loaded) {
+        setIsModelLoaded(true)
+        setLoadProgress('')
+        setMessages(prev => [...prev, { 
+          role: 'system', 
+          content: `Model "${modelPath}" was already loaded.` 
+        }])
+        console.log('[ChatPage] Model was already loaded.')
       } else {
         const errorSummary = result.error || 'Failed to load model'
         const errorDetails = result.details || result.error || 'Unknown error'
+        console.error('[ChatPage] Model load failed:', errorSummary)
+        console.error('[ChatPage] Error details:', errorDetails)
         setLoadError({ summary: errorSummary, details: errorDetails })
+        setLoadProgress('')
         setMessages(prev => [...prev, { 
           role: 'system', 
           content: `Error: ${errorSummary}` 
         }])
       }
     } catch (error: any) {
-      console.error('Failed to load model:', error)
+      console.error('[ChatPage] EXCEPTION during model load:', error)
       const errorMsg = error?.message || String(error)
+      console.error('[ChatPage] Error message:', errorMsg)
       setLoadError({ summary: 'API request failed', details: errorMsg })
+      setLoadProgress('')
       setMessages(prev => [...prev, { 
         role: 'system', 
         content: `Error: ${errorMsg}` 
@@ -213,10 +271,17 @@ export function ChatPage() {
   }
 
   const unloadModel = async () => {
-    await api.chat.unload()
-    setIsModelLoaded(false)
-    setMessages([])
-    setLoadError(null)
+    console.log('[ChatPage] Unloading model...')
+    try {
+      await api.chat.unload()
+      setIsModelLoaded(false)
+      setMessages([])
+      setLoadError(null)
+      console.log('[ChatPage] Model unloaded successfully')
+    } catch (error) {
+      console.error('[ChatPage] Error unloading model:', error)
+      setIsModelLoaded(false)
+    }
   }
 
   const clearChat = () => {
@@ -368,6 +433,15 @@ export function ChatPage() {
               )}
               <InfoTooltip content="Initiates or terminates the model inference engine." impact="Loading takes VRAM; unloading frees it for other tasks like training." />
             </div>
+            
+            {loadProgress && (
+              <div className="mt-2 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                  <p className="text-sm text-primary">{loadProgress}</p>
+                </div>
+              </div>
+            )}
             
             {loadError && (
               <div className="mt-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">

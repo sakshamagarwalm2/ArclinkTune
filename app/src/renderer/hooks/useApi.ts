@@ -124,7 +124,10 @@ export interface GPUHealthResult {
   tensor_test_passed: boolean
   memory_test_passed: boolean
   error: string | null
-  details: Record<string, number>
+  details: Record<string, number | string>
+  venv_pytorch_version?: string
+  venv_cuda_available?: boolean
+  venv_cuda_version?: string
 }
 
 export interface LocalModel {
@@ -168,10 +171,16 @@ export function useApi() {
     getDisk: () => useQuery<DiskStats[]>({ queryKey: ['system', 'disk'], queryFn: () => fetchApi('/system/disk'), refetchInterval: 30000 }),
   }
 
+  const datasets = {
+    getInfo: () => useQuery<any>({ queryKey: ['datasets', 'info'], queryFn: () => fetchApi('/datasets/info') }),
+    getSupportedFormats: () => useQuery<any>({ queryKey: ['datasets', 'formats'], queryFn: () => fetchApi('/datasets/supported-formats') }),
+  }
+
   return {
     models,
     training,
     system,
+    datasets,
     fetchApi,
   }
 }
@@ -206,6 +215,8 @@ export const api = {
     getDatasets: () => fetchApi<{ name: string; path: string }[]>('/training/datasets'),
     saveConfig: (config: TrainingConfig, path: string) => fetchApi('/training/save', { method: 'POST', body: JSON.stringify({ config, path }) }),
     loadConfig: (path: string) => fetchApi<TrainingConfig>('/training/load', { method: 'POST', body: JSON.stringify({ path }) }),
+    getComputeDevices: () => fetchApi<any>('/training/compute-devices'),
+    getComputeOptions: () => fetchApi<any>('/training/compute-options'),
   },
   chat: {
     load: (config: Record<string, any>) => fetchApi('/chat/load', { method: 'POST', body: JSON.stringify(config) }),
@@ -238,5 +249,16 @@ export const api = {
     stop: (runId: string) => fetchApi<{ success: boolean }>(`/export/stop/${runId}`, { method: 'POST' }),
     getLogs: (runId: string) => fetchApi<{ logs: string[]; count: number }>(`/export/logs/${runId}`),
     listRuns: () => fetchApi<{ run_id: string; status: string; progress: number }[]>('/export/runs'),
+  },
+  datasets: {
+    getInfo: () => fetchApi<{ datasets: any[]; config_path: string }>('/datasets/info'),
+    getSupportedFormats: () => fetchApi<any>('/datasets/supported-formats'),
+    validateLocalPath: (path: string) => fetchApi<any>('/datasets/validate-local-path', { method: 'POST', body: JSON.stringify({ path }) }),
+    copyToData: (path: string) => fetchApi<any>('/datasets/copy-to-data', { method: 'POST', body: JSON.stringify({ path }) }),
+    searchHF: (query: string, limit?: number) => fetchApi<any>(`/datasets/hf/search?query=${encodeURIComponent(query)}&limit=${limit || 20}`),
+    getHFDatasetInfo: (repoId: string) => fetchApi<any>(`/datasets/hf/${encodeURIComponent(repoId)}`),
+    previewHF: (repoId: string, split?: string) => fetchApi<any>(`/datasets/hf/${encodeURIComponent(repoId)}/preview?split=${split || 'train'}`),
+    validateHFFormat: (repoId: string) => fetchApi<any>(`/datasets/hf/validate-format?repo_id=${encodeURIComponent(repoId)}`),
+    downloadHF: (repoId: string, splits?: string) => fetchApi<any>('/datasets/hf/' + encodeURIComponent(repoId) + '/download', { method: 'POST', body: JSON.stringify({ splits }) }),
   },
 }

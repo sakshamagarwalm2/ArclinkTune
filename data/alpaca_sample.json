@@ -1,0 +1,52 @@
+[
+  {
+    "instruction": "What is the capital of France?",
+    "input": "",
+    "output": "The capital of France is Paris."
+  },
+  {
+    "instruction": "Write a short poem about the ocean.",
+    "input": "",
+    "output": "Blue waves crash upon the shore,\nGentle tides forevermore,\nSalt air whispers through the night,\nMoonlit waters, silver bright."
+  },
+  {
+    "instruction": "Explain photosynthesis in simple terms.",
+    "input": "",
+    "output": "Photosynthesis is how plants make food using sunlight. They absorb sunlight, water, and carbon dioxide, then convert it into glucose (their food) and release oxygen. It's like a plant's kitchen where sunlight is the energy source!"
+  },
+  {
+    "instruction": "What are the three primary colors?",
+    "input": "",
+    "output": "The three primary colors are red, blue, and yellow. These colors cannot be created by mixing other colors and are used as the foundation for creating all other colors."
+  },
+  {
+    "instruction": "Translate the following to Spanish",
+    "input": "Hello, how are you today?",
+    "output": "Hola, ¿cómo estás hoy?"
+  },
+  {
+    "instruction": "What is machine learning?",
+    "input": "",
+    "output": "Machine learning is a type of artificial intelligence where computers learn from data to make predictions or decisions without being explicitly programmed. It's like teaching a computer to improve at a task by giving it examples to learn from."
+  },
+  {
+    "instruction": "List three tips for better sleep.",
+    "input": "",
+    "output": "1. Keep a consistent sleep schedule - go to bed and wake up at the same time daily.\n2. Avoid screens for 1 hour before bed - the blue light can disrupt your sleep cycle.\n3. Keep your room cool and dark - around 65-68°F (18-20°C) is ideal for most people."
+  },
+  {
+    "instruction": "What year did World War II end?",
+    "input": "",
+    "output": "World War II ended in 1945. Germany surrendered in May 1945, and Japan surrendered in September 1945, following the atomic bombings of Hiroshima and Nagasaki."
+  },
+  {
+    "instruction": "Write a recipe for chocolate chip cookies.",
+    "input": "",
+    "output": "Chocolate Chip Cookies Recipe:\n\nIngredients:\n- 2 cups flour\n- 1 cup butter\n- 3/4 cup sugar\n- 2 eggs\n- 2 cups chocolate chips\n- 1 tsp vanilla\n\nInstructions:\n1. Preheat oven to 375°F\n2. Mix butter and sugar until fluffy\n3. Beat in eggs and vanilla\n4. Gradually add flour\n5. Stir in chocolate chips\n6. Bake for 10-12 minutes"
+  },
+  {
+    "instruction": "What is the difference between a virus and bacteria?",
+    "input": "",
+    "output": "Viruses are much smaller than bacteria and cannot reproduce without a host cell. Bacteria are single-celled organisms that can live independently. Viruses cause diseases like colds and flu, while bacteria can be both helpful (like gut bacteria) or harmful (like infections)."
+  }
+]

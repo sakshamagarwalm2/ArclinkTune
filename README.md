@@ -28,7 +28,7 @@
 
 ## Architecture
 
-ArclinkTune uses a dual-environment setup:
+ArclinkTune uses a unified environment for training and monitoring:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -43,22 +43,11 @@ ArclinkTune uses a dual-environment setup:
 │                                    │                        │
 │                                    ▼                        │
 │   ┌─────────────────────────────────────────────────────┐   │
-│   │                    Training                         │   │
-│   │  ┌─────────────────────────────────────────────┐  │   │
-│   │  │         core\.venv (Virtual Env)            │  │   │
-│   │  │  • LlamaFactory (llamafactory-cli)         │  │   │
-│   │  │  • PyTorch (CPU/CUDA)                      │  │   │
-│   │  │  • Transformers, PEFT, TRL, etc.           │  │   │
-│   │  └─────────────────────────────────────────────┘  │   │
-│   └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│   ┌─────────────────────────────────────────────────────┐   │
-│   │              GPU Monitoring                         │   │
-│   │  ┌─────────────────────────────────────────────┐  │   │
-│   │  │         Global Python                        │  │   │
-│   │  │  • PyTorch with CUDA                        │  │   │
-│   │  │  • pynvml (NVIDIA GPU stats)               │  │   │
-│   │  └─────────────────────────────────────────────┘  │   │
+│   │              core\.venv (Virtual Env)                │   │
+│   │  • LlamaFactory (llamafactory-cli)                  │   │
+│   │  • PyTorch with CUDA (GPU training/inference)       │   │
+│   │  • PyTorch for GPU Monitoring                       │   │
+│   │  • pynvml (NVIDIA GPU stats)                       │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -69,13 +58,17 @@ ArclinkTune uses a dual-environment setup:
 | Component | Python Environment | Purpose |
 |-----------|-------------------|---------|
 | **Training** | `core\.venv` | LlamaFactory, model training, fine-tuning |
-| **GPU Monitoring** | Global Python | PyTorch CUDA, pynvml, real-time stats |
+| **Inference** | `core\.venv` | Chat API, model loading |
+| **GPU Monitoring** | `core\.venv` | PyTorch CUDA, pynvml, real-time stats |
 | **Frontend** | Node.js | Electron app, React UI |
 
-### Why Dual Environment?
+### Key Ports:
 
-1. **Training (venv)**: Needs specific versions of dependencies, isolated from system
-2. **GPU Monitoring (global)**: Needs latest PyTorch with CUDA for best compatibility
+| Service | Port | Purpose |
+|---------|------|---------|
+| Backend API | 8000 | FastAPI server |
+| Frontend | 5173 | React dev server |
+| Chat API | 8001 | LLaMA-Factory inference (internal) |
 
 ## Project Structure
 
@@ -111,7 +104,14 @@ ArclinkTune/
 │   ├── setup.ps1          # First-time setup (PowerShell)
 │   ├── setup.bat          # First-time setup (CMD)
 │   ├── run.ps1            # Run app (PowerShell)
-│   └── run.bat            # Run app (CMD)
+│   ├── run.bat            # Run app (CMD)
+│   ├── diagnose_cuda.bat   # CUDA diagnostic tool
+│   ├── kill_api_processes.bat  # Kill stale API processes
+│   ├── test_model_loading.bat   # Test model loading
+│   ├── test_model_loading.py    # Python test script
+│   ├── check_hardware.py   # Hardware check
+│   ├── setup_environment.py # Environment setup
+│   └── quick_start.py      # Quick start verification
 ├── docker-compose.yml       # Docker deployment
 ├── Dockerfile.backend       # Backend container
 └── README.md
@@ -205,6 +205,15 @@ python scripts/run_backend.py --host 127.0.0.1 --port 8000 --debug
 ### Utility Scripts
 
 ```bash
+# Diagnose CUDA/GPU setup (Windows)
+scripts\diagnose_cuda.bat
+
+# Kill stale API processes (Windows)
+scripts\kill_api_processes.bat
+
+# Test model loading directly (Windows)
+scripts\test_model_loading.bat
+
 # Check system hardware capabilities
 python scripts/check_hardware.py
 
@@ -347,11 +356,26 @@ python scripts/check_hardware.py
 
 ## Troubleshooting
 
+### Diagnostic Scripts
+
+Run these scripts to diagnose common issues:
+
+```bash
+# Diagnose CUDA/GPU issues
+scripts\diagnose_cuda.bat
+
+# Kill stale API processes on port 8001
+scripts\kill_api_processes.bat
+
+# Test model loading directly
+scripts\test_model_loading.py
+```
+
 ### Backend won't start
 
 1. Check Python version: `python --version` (needs 3.11+)
 2. Verify dependencies: `pip install -r backend/requirements.txt`
-3. Check port availability: `netstat -an | grep 8000`
+3. Check port availability: `netstat -ano | findstr 8000`
 
 ### Frontend won't start
 
@@ -359,17 +383,35 @@ python scripts/check_hardware.py
 2. Reinstall: `npm install`
 3. Check for errors: `npm run dev`
 
-### GPU not detected
+### GPU/CUDA not detected
 
-1. Verify NVIDIA driver: `nvidia-smi`
-2. Check CUDA installation: `nvcc --version`
-3. Install nvidia-ml-py3: `pip install nvidia-ml-py3`
+1. Run: `scripts\diagnose_cuda.bat` to check CUDA status
+2. Verify NVIDIA driver: `nvidia-smi`
+3. If venv PyTorch shows CPU only, reinstall:
+   ```bash
+   cd core\.venv\Scripts
+   pip uninstall -y torch torchaudio torchvision torchdata
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+   pip install "torchdata>=0.10.0,<=0.11.0"
+   ```
 
-### Connection refused errors
+### Model loading fails / Chat not working
+
+1. Kill stale processes: `scripts\kill_api_processes.bat`
+2. Check backend console for `[ChatService]` logs
+3. Verify model exists: Check `C:\Users\<user>\models\`
+4. Try loading a small model first (e.g., Qwen2.5-0.5B)
+
+### Connection refused errors (Chat)
 
 1. Ensure backend is running: `curl http://localhost:8000/health`
-2. Check CORS settings in `backend/main.py`
-3. Verify frontend API URL in `app/src/renderer/hooks/useApi.ts`
+2. Kill stale API processes: `scripts\kill_api_processes.bat`
+3. Reload the model in the Chat page
+4. Check CORS settings in `backend/main.py`
+
+### Port 8001 already in use
+
+Run: `scripts\kill_api_processes.bat` to kill stale API processes.
 
 ## Contributing
 
