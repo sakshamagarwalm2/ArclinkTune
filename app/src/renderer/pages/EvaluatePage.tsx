@@ -11,15 +11,26 @@ import { Switch } from '@/components/ui/switch'
 import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { api } from '@/hooks/useApi'
+import { useApp } from '@/contexts/AppContext'
 
 import { cn } from '@/lib/utils'
 
 export function EvaluatePage() {
+  const { lastTrainingResult } = useApp()
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [logs, setLogs] = useState<string[]>([])
   const [runId, setRunId] = useState<string | null>(null)
   const [results, setResults] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    if (lastTrainingResult) {
+      setModelPath(lastTrainingResult.modelPath)
+      setFinetuningType(lastTrainingResult.finetuningType)
+      setCheckpointPath(lastTrainingResult.checkpointPath)
+      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Loaded training result from: ${lastTrainingResult.outputDir}`])
+    }
+  }, [lastTrainingResult])
   
   const [modelPath, setModelPath] = useState('')
   const [finetuningType, setFinetuningType] = useState('lora')

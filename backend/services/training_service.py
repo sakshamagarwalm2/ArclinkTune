@@ -33,7 +33,7 @@ class TrainingProcess:
         self.status = "stopping"
         if self.process.poll() is None:
             try:
-                if os.name == 'nt':
+                if os.name == "nt":
                     self.process.terminate()
                 else:
                     os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
@@ -56,10 +56,10 @@ class TrainingService:
     def create_config_file(self, config: Dict[str, Any], output_dir: Path) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
         config_path = output_dir / "train_config.yaml"
-        
-        with open(config_path, 'w', encoding='utf-8') as f:
+
+        with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
-        
+
         return config_path
 
     def parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
@@ -67,14 +67,14 @@ class TrainingService:
         step_pattern = r"Step\s*(\d+)/(\d+)"
         match_loss = re.search(loss_pattern, line)
         match_step = re.search(step_pattern, line)
-        
+
         result = {}
         if match_loss:
-            result['loss'] = float(match_loss.group(1))
+            result["loss"] = float(match_loss.group(1))
         if match_step:
-            result['current_step'] = int(match_step.group(1))
-            result['total_steps'] = int(match_step.group(2))
-        
+            result["current_step"] = int(match_step.group(1))
+            result["total_steps"] = int(match_step.group(2))
+
         return result if result else None
 
     def _read_logs(self, run_id: str):
@@ -87,19 +87,21 @@ class TrainingService:
                 if run.process.stdout:
                     line = run.process.stdout.readline()
                     if line:
-                        line = line.decode('utf-8', errors='replace').strip()
+                        line = line.decode("utf-8", errors="replace").strip()
                         if line:
                             run.log_lines.append(line)
                             parsed = self.parse_log_line(line)
                             if parsed:
-                                if 'loss' in parsed:
-                                    run.loss_history.append(parsed['loss'])
-                                if 'current_step' in parsed:
-                                    run.current_step = parsed['current_step']
-                                if 'total_steps' in parsed:
-                                    run.total_steps = parsed['total_steps']
+                                if "loss" in parsed:
+                                    run.loss_history.append(parsed["loss"])
+                                if "current_step" in parsed:
+                                    run.current_step = parsed["current_step"]
+                                if "total_steps" in parsed:
+                                    run.total_steps = parsed["total_steps"]
                                     if run.total_steps > 0:
-                                        run.progress = int(run.current_step / run.total_steps * 100)
+                                        run.progress = int(
+                                            run.current_step / run.total_steps * 100
+                                        )
                     elif run.process.poll() is not None:
                         break
                 else:
@@ -111,21 +113,17 @@ class TrainingService:
                 run.status = "completed"
                 run.progress = 100
 
-    def start_training(self, config: Dict[str, Any]) -> str:
+    def start_training(self, config: Dict[str, Any]) -> tuple:
         run_id = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        output_dir = Path(config.get('output_dir', f'output/{run_id}'))
-        
+        output_dir = Path(config.get("output_dir", f"output/{run_id}"))
+
         config_path = self.create_config_file(config, output_dir)
-        
-        cmd = [
-            self.venv_python,
-            '-m', 'llamafactory.cli', 'train',
-            str(config_path)
-        ]
-        
+
+        cmd = [self.venv_python, "-m", "llamafactory.cli", "train", str(config_path)]
+
         env = os.environ.copy()
-        env['PYTHONPATH'] = str(self.src_path)
-        
+        env["PYTHONPATH"] = str(self.src_path)
+
         try:
             process = subprocess.Popen(
                 cmd,
@@ -133,16 +131,18 @@ class TrainingService:
                 stderr=subprocess.STDOUT,
                 env=env,
                 cwd=str(self.llamafactory_path),
-                preexec_fn=os.setsid if os.name != 'nt' else None
+                preexec_fn=os.setsid if os.name != "nt" else None,
             )
-            
+
             run = TrainingProcess(run_id, config, process)
             self.runs[run_id] = run
-            
-            reader = threading.Thread(target=self._read_logs, args=(run_id,), daemon=True)
+
+            reader = threading.Thread(
+                target=self._read_logs, args=(run_id,), daemon=True
+            )
             reader.start()
-            
-            return run_id
+
+            return run_id, str(output_dir)
         except Exception as e:
             raise RuntimeError(f"Failed to start training: {e}")
 
@@ -150,7 +150,7 @@ class TrainingService:
         run = self.runs.get(run_id)
         if not run:
             return {"error": "Run not found"}
-        
+
         status = {
             "run_id": run_id,
             "status": run.status,
@@ -160,14 +160,16 @@ class TrainingService:
             "loss_history": run.loss_history[-100:],
             "elapsed_seconds": run.get_elapsed_time(),
         }
-        
+
         if run.status == "completed":
             status["message"] = "Training completed successfully"
         elif run.status == "stopped":
             status["message"] = "Training was stopped by user"
         elif run.status == "running":
-            status["message"] = f"Training in progress: Step {run.current_step}/{run.total_steps}"
-        
+            status["message"] = (
+                f"Training in progress: Step {run.current_step}/{run.total_steps}"
+            )
+
         return status
 
     def get_logs(self, run_id: str, lines: int = 100) -> List[str]:
@@ -180,7 +182,7 @@ class TrainingService:
         run = self.runs.get(run_id)
         if not run:
             return False
-        
+
         run.stop()
         return True
 
@@ -194,7 +196,7 @@ class TrainingService:
                 "config_summary": {
                     "stage": run.config.get("stage", "unknown"),
                     "model": run.config.get("model_name_or_path", "unknown"),
-                }
+                },
             }
             for run_id, run in self.runs.items()
         ]

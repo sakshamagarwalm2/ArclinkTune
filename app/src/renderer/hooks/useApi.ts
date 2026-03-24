@@ -221,7 +221,7 @@ export const api = {
   chat: {
     load: (config: Record<string, any>) => fetchApi('/chat/load', { method: 'POST', body: JSON.stringify(config) }),
     unload: () => fetchApi('/chat/unload', { method: 'POST' }),
-    chat: (body: { messages: { role: string; content: string }[]; max_tokens?: number; temperature?: number; top_p?: number }) => fetchApi('/chat/chat', { method: 'POST', body: JSON.stringify(body) }),
+    chat: (body: { messages: { role: string; content: string }[]; max_tokens?: number; temperature?: number; top_p?: number; repetition_penalty?: number; presence_penalty?: number; skip_special_tokens?: boolean }) => fetchApi('/chat/chat', { method: 'POST', body: JSON.stringify(body) }),
     getStatus: () => fetchApi('/chat/status'),
   },
   system: {

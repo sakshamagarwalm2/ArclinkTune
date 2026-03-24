@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -18,9 +18,10 @@ import { DatasetBrowser } from '@/components/DatasetBrowser'
 import { 
   Play, Square, Save, FolderOpen, Eye, Settings, 
   Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight,
-  Info, Heart, Sparkles, Box, RefreshCw, Search
+  Info, Heart, Sparkles, Box, RefreshCw, Search, CheckCircle2, XCircle, Loader2, Wand2
 } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
+import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const TRAINING_STAGES = [
   { value: 'sft', label: 'SFT (Supervised Fine-tuning)' },
@@ -138,9 +139,15 @@ interface TrainingConfig {
 }
 
 export function TrainPage() {
-  const { status, progress, startTraining, stopTraining } = useTraining()
-  const { selectedModel, setSelectedModel, templates, setTemplates } = useApp()
+  const navigate = useNavigate()
+  const { status, progress, startTraining, stopTraining, clearTraining, lossHistory, currentStep, totalSteps, runId, logs } = useTraining()
+  const { selectedModel, setSelectedModel, templates, setTemplates, setLastTrainingResult } = useApp()
   const isRunning = status === 'running'
+  const isCompleted = status === 'completed'
+  const isFailed = status === 'failed'
+  
+  const prevSelectedModelRef = useRef<string>('')
+  const [previewCommand, setPreviewCommand] = useState('')
   
   const [activeSubTab, setActiveSubTab] = useState<'freeze' | 'rlhf' | 'galore' | 'apollo' | 'badam'>('freeze')
   const [config, setConfig] = useState<TrainingConfig>({
@@ -216,8 +223,6 @@ export function TrainPage() {
   })
 
   const [showBrowser, setShowBrowser] = useState(false)
-  const [previewCommand, setPreviewCommand] = useState('')
-  const [logs, setLogs] = useState<string[]>([])
   const queryClient = useQueryClient()
 
   const { data: models = [], isLoading: loadingModels } = useQuery<Model[]>({
@@ -253,7 +258,8 @@ export function TrainPage() {
   }, [apiTemplates, templates.length, setTemplates])
 
   useEffect(() => {
-    if (selectedModel && selectedModel.path) {
+    if (selectedModel && selectedModel.path && selectedModel.path !== prevSelectedModelRef.current) {
+      prevSelectedModelRef.current = selectedModel.path
       setConfig(prev => ({
         ...prev,
         model_name_or_path: selectedModel.path,
@@ -261,6 +267,19 @@ export function TrainPage() {
       }))
     }
   }, [selectedModel])
+
+  useEffect(() => {
+    if (isCompleted && config.output_dir) {
+      const checkpointPath = `${config.output_dir}/checkpoint-*`
+      setLastTrainingResult({
+        outputDir: config.output_dir,
+        modelPath: config.model_name_or_path,
+        finetuningType: config.finetuning_type,
+        checkpointPath: checkpointPath,
+        timestamp: Date.now(),
+      })
+    }
+  }, [isCompleted, config.output_dir])
 
   const handleModelSelect = (modelPath: string) => {
     const model = models.find(m => m.path === modelPath)
@@ -322,17 +341,76 @@ export function TrainPage() {
   }
 
   const handleStart = async () => {
+    const errors: string[] = []
+    
+    if (!config.model_name_or_path) errors.push('Model path is required')
+    if (!config.dataset) errors.push('Dataset is required')
+    if (!config.output_dir) errors.push('Output directory is required')
+    if (config.output_dir && config.output_dir.includes(' ')) errors.push('Output directory should not contain spaces')
+    
+    if (errors.length > 0) {
+      return
+    }
+
     try {
       await startTraining(config as any)
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Training started...`])
     } catch (error) {
-      setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Error: ${error}`])
+      console.error('Training error:', error)
     }
   }
 
   const handleStop = async () => {
     await stopTraining()
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Training stopped`])
+  }
+
+  const handleTrainWithDefaults = () => {
+    if (selectedModel && selectedModel.path) {
+      setConfig(prev => ({
+        ...prev,
+        model_name_or_path: selectedModel.path,
+        template: selectedModel.template || 'default',
+        finetuning_type: 'lora',
+        dataset: 'alpaca',
+        dataset_dir: 'data',
+        learning_rate: 5e-5,
+        num_train_epochs: 3.0,
+        cutoff_len: 2048,
+        per_device_train_batch_size: 2,
+        gradient_accumulation_steps: 8,
+        output_dir: `output/train_${Date.now()}`,
+        bf16: true,
+        lora_rank: 8,
+        lora_alpha: 16,
+        lora_dropout: 0.05,
+        lora_target: 'all',
+      }))
+    } else {
+      setConfig(prev => ({
+        ...prev,
+        finetuning_type: 'lora',
+        dataset: 'alpaca',
+        dataset_dir: 'data',
+        learning_rate: 5e-5,
+        num_train_epochs: 3.0,
+        cutoff_len: 2048,
+        per_device_train_batch_size: 2,
+        gradient_accumulation_steps: 8,
+        output_dir: `output/train_${Date.now()}`,
+        bf16: true,
+        lora_rank: 8,
+        lora_alpha: 16,
+        lora_dropout: 0.05,
+        lora_target: 'all',
+      }))
+    }
+  }
+
+  const handleEvaluate = () => {
+    navigate('/evaluate')
+  }
+
+  const handleClear = () => {
+    clearTraining()
   }
 
   return (
@@ -347,12 +425,31 @@ export function TrainPage() {
           <p className="text-xs md:text-sm text-muted-foreground mt-0.5">Configure and run model fine-tuning</p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
-          <Badge variant={isRunning ? 'default' : 'secondary'} className={cn(
-            "whitespace-nowrap transition-all",
-            isRunning ? 'bg-neon-amber text-white animate-pulse' : ''
-          )}>
-            {isRunning ? '● Training' : 'Ready'}
-          </Badge>
+          {isRunning && (
+            <Badge variant="default" className="bg-neon-amber text-white animate-pulse whitespace-nowrap">
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Training
+            </Badge>
+          )}
+          {isCompleted && (
+            <Badge variant="default" className="bg-neon-green text-white whitespace-nowrap">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> Completed
+            </Badge>
+          )}
+          {isFailed && (
+            <Badge variant="destructive" className="whitespace-nowrap">
+              <XCircle className="w-3 h-3 mr-1" /> Failed
+            </Badge>
+          )}
+          {!isRunning && !isCompleted && !isFailed && (
+            <Badge variant="secondary" className="whitespace-nowrap">
+              Ready
+            </Badge>
+          )}
+          {isRunning && runId && (
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              Step {currentStep}/{totalSteps}
+            </span>
+          )}
           <div className="flex items-center gap-1.5 ml-auto sm:ml-0">
             <div className="h-2 w-2 rounded-full bg-neon-green" />
             <span className="text-[10px] text-muted-foreground whitespace-nowrap">Backend Connected</span>
@@ -1413,15 +1510,6 @@ export function TrainPage() {
                     />
                   </div>
                 </div>
-
-                {/* Interlink */}
-                <div className="flex gap-2 pt-2">
-                  <Link to="/evaluate" className="flex-1">
-                    <Button variant="outline" className="w-full gap-2">
-                      <LineChart className="w-4 h-4" /> Evaluate after Training <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -1443,6 +1531,13 @@ export function TrainPage() {
                 <InfoTooltip content="Shows the raw command line that will be executed." impact="Helps power-users verify the final argument string before starting." />
               </div>
               
+              <div className="flex items-center gap-1 group">
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={handleTrainWithDefaults}>
+                  <Wand2 className="w-4 h-4 mr-1" /> <span className="sm:inline">Train with Defaults</span>
+                </Button>
+                <InfoTooltip content="Load recommended default settings for quick training." impact="Applies sensible defaults for common fine-tuning scenarios." />
+              </div>
+
               <div className="flex items-center gap-1 group">
                 <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
                   <FolderOpen className="w-4 h-4 mr-1" /> <span className="sm:inline">Load</span>
@@ -1466,8 +1561,18 @@ export function TrainPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-1 group w-full sm:w-auto mt-2 sm:mt-0">
+                  {(isCompleted || isFailed) && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={handleEvaluate} className="w-full sm:w-auto">
+                        <LineChart className="w-4 h-4 mr-1" /> Evaluate
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleClear} className="w-full sm:w-auto">
+                        <RefreshCw className="w-4 h-4 mr-1" /> Clear
+                      </Button>
+                    </>
+                  )}
                   <Button size="sm" onClick={handleStart} className="w-full sm:w-auto">
-                    <Play className="w-4 h-4 mr-1" /> Start Training
+                    <Play className="w-4 h-4 mr-1" /> {(isCompleted || isFailed) ? 'Restart Training' : 'Start Training'}
                   </Button>
                   <InfoTooltip content="Initializes the backend engine and starts the training job." impact="Locks resources and begins updating model weights based on your config." />
                 </div>
@@ -1482,7 +1587,7 @@ export function TrainPage() {
               <code className="text-xs break-all font-mono">{previewCommand}</code>
             </div>
           )}
-          {isRunning && (
+          {(isRunning || isCompleted || lossHistory.length > 0) && (
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
                 <div className="flex items-center">
@@ -1494,7 +1599,57 @@ export function TrainPage() {
               <Progress value={progress || 0} className="h-2" variant="cyan" />
             </div>
           )}
-          <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
+
+          {lossHistory.length > 0 && (
+            <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <LineChart className="w-4 h-4 mr-2 text-neon-cyan" />
+                  <span className="text-sm font-medium">Loss Curve</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {lossHistory.length} steps recorded
+                </span>
+              </div>
+              <div className="h-[180px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsLineChart data={lossHistory.map((loss, i) => ({ step: i + 1, loss }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="step" 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={10}
+                      tickLine={false}
+                    />
+                    <YAxis 
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={10}
+                      tickLine={false}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px'
+                      }}
+                      labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="loss" 
+                      stroke="#22d3ee" 
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4, fill: '#22d3ee' }}
+                    />
+                  </RechartsLineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+          <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Training logs will appear here...</p>
             ) : (

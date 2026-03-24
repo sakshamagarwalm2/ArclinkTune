@@ -307,8 +307,8 @@ async def preview_training(config: TrainingConfig):
 async def start_training(config: TrainingConfig):
     try:
         cfg = config.to_dict()
-        run_id = training_service.start_training(cfg)
-        return {"run_id": run_id, "success": True}
+        run_id, output_dir = training_service.start_training(cfg)
+        return {"run_id": run_id, "success": True, "output_dir": output_dir}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

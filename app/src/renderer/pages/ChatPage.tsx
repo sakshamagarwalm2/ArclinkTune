@@ -52,8 +52,24 @@ export function ChatPage() {
   const [maxTokens, setMaxTokens] = useState(1024)
   const [temperature, setTemperature] = useState(0.95)
   const [topP, setTopP] = useState(0.7)
-  const [topK, setTopK] = useState(20)
   const [repetitionPenalty, setRepetitionPenalty] = useState(1.1)
+  const [stream, setStream] = useState(false)
+
+  const DEFAULT_SETTINGS = {
+    maxTokens: 1024,
+    temperature: 0.95,
+    topP: 0.7,
+    repetitionPenalty: 1.1,
+    stream: false,
+  }
+
+  const resetToDefaults = () => {
+    setMaxTokens(DEFAULT_SETTINGS.maxTokens)
+    setTemperature(DEFAULT_SETTINGS.temperature)
+    setTopP(DEFAULT_SETTINGS.topP)
+    setRepetitionPenalty(DEFAULT_SETTINGS.repetitionPenalty)
+    setStream(DEFAULT_SETTINGS.stream)
+  }
   
   const [skipSpecialTokens, setSkipSpecialTokens] = useState(true)
   const [escapeHtml, setEscapeHtml] = useState(true)
@@ -155,28 +171,87 @@ export function ChatPage() {
     setIsLoading(true)
 
     try {
-      const response = await api.chat.chat({
-        messages: [...messages, userMessage],
-        max_tokens: maxTokens,
-        temperature,
-        top_p: topP,
-        top_k: topK,
-        repetition_penalty: repetitionPenalty,
-        skip_special_tokens: skipSpecialTokens,
-      }) as { content?: string; error?: string }
-      
-      console.log('[ChatPage] Chat response:', response)
-      
-      if (response.error) {
-        console.error('[ChatPage] Chat error:', response.error)
-        setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }])
-        if (response.error.includes('not loaded') || response.error.includes('not responding') || response.error.includes('crashed')) {
-          setIsModelLoaded(false)
+      if (stream) {
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+        
+        const allMessages = [...messages, userMessage]
+        const response = await fetch('/api/chat/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: allMessages,
+            max_tokens: maxTokens,
+            temperature,
+            top_p: topP,
+            repetition_penalty: repetitionPenalty,
+            stream: true,
+          }),
+        })
+
+        const reader = response.body?.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6)
+                if (data === '[DONE]') break
+                try {
+                  const parsed = JSON.parse(data)
+                  if (parsed.content) {
+                    setMessages(prev => prev.map((msg, i) => 
+                      i === prev.length - 1 
+                        ? { ...msg, content: msg.content + parsed.content }
+                        : msg
+                    ))
+                  }
+                  if (parsed.error) {
+                    setMessages(prev => prev.map((msg, i) => 
+                      i === prev.length - 1 
+                        ? { ...msg, content: `Error: ${parsed.error}` }
+                        : msg
+                    ))
+                  }
+                } catch (e) {
+                  console.log('[ChatPage] SSE parse error:', e)
+                }
+              }
+            }
+          }
         }
-      } else if (response.content) {
-        setMessages(prev => [...prev, { role: 'assistant', content: response.content! }])
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: `Error: Unexpected response format: ${JSON.stringify(response)}` }])
+        const response = await api.chat.chat({
+          messages: [...messages, userMessage],
+          max_tokens: maxTokens,
+          temperature,
+          top_p: topP,
+          repetition_penalty: repetitionPenalty,
+          skip_special_tokens: skipSpecialTokens,
+          presence_penalty: repetitionPenalty,
+        }) as { content?: string; error?: string }
+        
+        console.log('[ChatPage] Chat response:', response)
+        
+        if (response.error) {
+          console.error('[ChatPage] Chat error:', response.error)
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${response.error}` }])
+          if (response.error.includes('not loaded') || response.error.includes('not responding') || response.error.includes('crashed')) {
+            setIsModelLoaded(false)
+          }
+        } else if (response.content) {
+          setMessages(prev => [...prev, { role: 'assistant', content: response.content! }])
+        } else {
+          setMessages(prev => [...prev, { role: 'assistant', content: `Error: Unexpected response format: ${JSON.stringify(response)}` }])
+        }
       }
     } catch (error: any) {
       console.error('[ChatPage] Chat exception:', error)
@@ -513,18 +588,6 @@ export function ChatPage() {
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center">
-                <label className="text-xs font-medium">Top-K: <span className="text-primary tabular-nums">{topK}</span></label>
-                <InfoTooltip content="Only considers the top 'K' most likely tokens for sampling." impact="Higher K maintains diversity; lower K keeps the response focused." />
-              </div>
-              <Slider 
-                value={[topK]} 
-                min={1} max={100} step={1}
-                onValueChange={([v]) => setTopK(v)}
-                disabled={!isModelLoaded}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center">
                 <label className="text-xs font-medium">Rep. Penalty: <span className="text-primary tabular-nums">{repetitionPenalty.toFixed(2)}</span></label>
                 <InfoTooltip content="Penalty applied to tokens that have already appeared." impact="Higher values (e.g. 1.2) significantly reduce repetitive phrases." />
               </div>
@@ -535,6 +598,23 @@ export function ChatPage() {
                 disabled={!isModelLoaded}
               />
             </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-border/30">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">Stream</span>
+                <InfoTooltip content="Stream responses token by token for real-time output." impact="When enabled, response appears progressively instead of all at once." />
+              </div>
+              <Switch
+                checked={stream}
+                onCheckedChange={setStream}
+                disabled={!isModelLoaded}
+                className="scale-90"
+              />
+            </div>
+
+            <Button variant="outline" size="sm" onClick={resetToDefaults} className="w-full mt-2 h-8 text-xs">
+              <RefreshCw className="w-3 h-3 mr-1" /> Reset to Defaults
+            </Button>
           </CardContent>
         </Card>
 

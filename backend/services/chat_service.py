@@ -3,6 +3,7 @@ import time
 import subprocess
 import threading
 import requests
+import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -344,6 +345,7 @@ class ChatService:
                     {"role": role, "content": msg.get("content", "")}
                 )
 
+            stream_enabled = kwargs.get("stream", False)
             payload = {
                 "model": self.model_args.get("model_name_or_path", "model").split("/")[
                     -1
@@ -353,20 +355,42 @@ class ChatService:
                 "top_p": kwargs.get("top_p", 0.9),
                 "max_tokens": kwargs.get("max_tokens", 1024),
                 "presence_penalty": kwargs.get("repetition_penalty", 1.0),
-                "stream": False,
+                "stream": stream_enabled,
             }
 
             print(f"[ChatService] Sending chat request...")
             response = requests.post(
-                f"{self.api_url}/v1/chat/completions", json=payload, timeout=180
+                f"{self.api_url}/v1/chat/completions",
+                json=payload,
+                timeout=180,
+                stream=stream_enabled,
             )
 
             if response.status_code == 200:
-                result = response.json()
-                if "choices" in result and len(result["choices"]) > 0:
-                    return {"content": result["choices"][0]["message"]["content"]}
+                if stream_enabled:
+                    accumulated_content = ""
+                    for line in response.iter_lines():
+                        if line:
+                            line_text = line.decode("utf-8")
+                            if line_text.startswith("data: "):
+                                data_str = line_text[6:]
+                                if data_str.strip() == "[DONE]":
+                                    break
+                                try:
+                                    data = json.loads(data_str)
+                                    if "choices" in data and len(data["choices"]) > 0:
+                                        delta = data["choices"][0].get("delta", {})
+                                        if "content" in delta:
+                                            accumulated_content += delta["content"]
+                                except json.JSONDecodeError:
+                                    pass
+                    return {"content": accumulated_content}
                 else:
-                    return {"error": f"Unexpected response: {result}"}
+                    result = response.json()
+                    if "choices" in result and len(result["choices"]) > 0:
+                        return {"content": result["choices"][0]["message"]["content"]}
+                    else:
+                        return {"error": f"Unexpected response: {result}"}
             else:
                 error_text = f"API error {response.status_code}: {response.text}"
                 print(f"[ChatService] {error_text}")
@@ -380,6 +404,69 @@ class ChatService:
         except Exception as e:
             print(f"[ChatService] Exception: {e}")
             return {"error": str(e)}
+
+    def stream_chat(self, messages: list, **kwargs):
+        if not self.process or not self._is_loaded:
+            if not self._check_api_running():
+                self._is_loaded = False
+                return
+            yield "Chat model not loaded or API not responding. Please reload the model."
+            return
+
+        try:
+            formatted_messages = []
+            for msg in messages:
+                role = msg.get("role", "user")
+                if role not in ["user", "assistant", "system"]:
+                    role = "user"
+                formatted_messages.append(
+                    {"role": role, "content": msg.get("content", "")}
+                )
+
+            payload = {
+                "model": self.model_args.get("model_name_or_path", "model").split("/")[
+                    -1
+                ],
+                "messages": formatted_messages,
+                "temperature": kwargs.get("temperature", 0.7),
+                "top_p": kwargs.get("top_p", 0.9),
+                "max_tokens": kwargs.get("max_tokens", 1024),
+                "presence_penalty": kwargs.get("repetition_penalty", 1.0),
+                "stream": True,
+            }
+
+            print(f"[ChatService] Sending streaming chat request...")
+
+            response = requests.post(
+                f"{self.api_url}/v1/chat/completions",
+                json=payload,
+                timeout=180,
+                stream=True,
+            )
+
+            if response.status_code == 200:
+                for line in response.iter_lines():
+                    if line:
+                        line_text = line.decode("utf-8")
+                        if line_text.startswith("data: "):
+                            data_str = line_text[6:]
+                            if data_str.strip() == "[DONE]":
+                                break
+                            try:
+                                data = json.loads(data_str)
+                                if "choices" in data and len(data["choices"]) > 0:
+                                    delta = data["choices"][0].get("delta", {})
+                                    if "content" in delta:
+                                        yield delta["content"]
+                            except json.JSONDecodeError:
+                                pass
+            else:
+                error_text = f"API error {response.status_code}: {response.text}"
+                print(f"[ChatService] {error_text}")
+                yield f"Error: {error_text}"
+        except Exception as e:
+            print(f"[ChatService] Stream Exception: {e}")
+            yield f"Error: {str(e)}"
 
     def get_status(self) -> Dict[str, Any]:
         api_running = self._check_api_running() if self.process else False

@@ -23,6 +23,14 @@ export interface DownloadTask {
   hub?: string
 }
 
+export interface TrainingResult {
+  outputDir: string
+  modelPath: string
+  finetuningType: string
+  checkpointPath: string
+  timestamp: number
+}
+
 interface AppContextType {
   selectedModel: ModelInfo | null
   setSelectedModel: (model: ModelInfo | null) => void
@@ -40,17 +48,29 @@ interface AppContextType {
   
   templates: string[]
   setTemplates: (templates: string[]) => void
+  
+  lastTrainingResult: TrainingResult | null
+  setLastTrainingResult: (result: TrainingResult | null) => void
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 const DOWNLOADED_MODELS_FILE = 'downloaded_models.json'
+const TRAINING_RESULT_KEY = 'arclink_last_training_result'
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null)
   const [downloadedModels, setDownloadedModels] = useState<string[]>([])
   const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([])
   const [templates, setTemplates] = useState<string[]>([])
+  const [lastTrainingResult, setLastTrainingResultState] = useState<TrainingResult | null>(() => {
+    try {
+      const saved = localStorage.getItem(TRAINING_RESULT_KEY)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
 
   const loadDownloadedModels = useCallback(() => {
     try {
@@ -99,6 +119,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ))
   }, [])
 
+  const setLastTrainingResult = useCallback((result: TrainingResult | null) => {
+    setLastTrainingResultState(result)
+    if (result) {
+      localStorage.setItem(TRAINING_RESULT_KEY, JSON.stringify(result))
+    } else {
+      localStorage.removeItem(TRAINING_RESULT_KEY)
+    }
+  }, [])
+
   useEffect(() => {
     loadDownloadedModels()
   }, [loadDownloadedModels])
@@ -118,6 +147,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       clearCompletedTasks,
       templates,
       setTemplates,
+      lastTrainingResult,
+      setLastTrainingResult,
     }}>
       {children}
     </AppContext.Provider>

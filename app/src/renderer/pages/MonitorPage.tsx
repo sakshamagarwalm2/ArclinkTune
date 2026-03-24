@@ -120,7 +120,7 @@ function GPUCard({ gpu, isPaused, healthStatus, healthResult }: { gpu: GPUStats;
               {healthResult.details.total_memory_gb && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">VRAM:</span>
-                  <span className="font-medium">{healthResult.details.total_memory_gb.toFixed(1)} GB</span>
+                  <span className="font-medium">{typeof healthResult.details.total_memory_gb === 'number' ? healthResult.details.total_memory_gb.toFixed(1) : healthResult.details.total_memory_gb} GB</span>
                 </div>
               )}
             </div>
@@ -150,8 +150,8 @@ function GPUCard({ gpu, isPaused, healthStatus, healthResult }: { gpu: GPUStats;
                   {healthResult.details.venv_gpu_name && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">VEnv GPU:</span>
-                      <span className="font-medium truncate max-w-[100px]" title={healthResult.details.venv_gpu_name}>
-                        {healthResult.details.venv_gpu_name}
+                      <span className="font-medium truncate max-w-[100px]" title={String(healthResult.details.venv_gpu_name)}>
+                        {String(healthResult.details.venv_gpu_name)}
                       </span>
                     </div>
                   )}

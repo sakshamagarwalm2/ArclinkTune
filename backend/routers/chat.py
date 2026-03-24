@@ -76,6 +76,7 @@ async def chat(body: dict):
     temperature = body.get("temperature", 0.95)
     top_p = body.get("top_p", 0.7)
     repetition_penalty = body.get("repetition_penalty", 1.0)
+    stream = body.get("stream", False)
 
     status = chat_service.get_status()
     print(
@@ -90,12 +91,38 @@ async def chat(body: dict):
             error_msg = "Model process is running but API is not responding. Try reloading the model."
         return {"error": error_msg}
 
+    if stream:
+        from fastapi.responses import StreamingResponse
+        import json
+
+        def stream_generator():
+            try:
+                for token in chat_service.stream_chat(
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    repetition_penalty=repetition_penalty,
+                ):
+                    yield f"data: {json.dumps({'content': token})}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            stream_generator(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
+
     response = chat_service.chat(
         messages=messages,
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
         repetition_penalty=repetition_penalty,
+        stream=stream,
     )
 
     return response
