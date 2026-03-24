@@ -28,6 +28,9 @@ export interface TrainingResult {
   modelPath: string
   finetuningType: string
   checkpointPath: string
+  dataset: string
+  datasetDir: string
+  template: string
   timestamp: number
 }
 
@@ -57,9 +60,17 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 
 const DOWNLOADED_MODELS_FILE = 'downloaded_models.json'
 const TRAINING_RESULT_KEY = 'arclink_last_training_result'
+const SELECTED_MODEL_KEY = 'arclink_selected_model'
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null)
+  const [selectedModel, setSelectedModelState] = useState<ModelInfo | null>(() => {
+    try {
+      const saved = localStorage.getItem(SELECTED_MODEL_KEY)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [downloadedModels, setDownloadedModels] = useState<string[]>([])
   const [downloadTasks, setDownloadTasks] = useState<DownloadTask[]>([])
   const [templates, setTemplates] = useState<string[]>([])
@@ -80,6 +91,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } catch (e) {
       console.error('Failed to load downloaded models:', e)
+    }
+  }, [])
+
+  const setSelectedModel = useCallback((model: ModelInfo | null) => {
+    setSelectedModelState(model)
+    if (model) {
+      localStorage.setItem(SELECTED_MODEL_KEY, JSON.stringify(model))
+    } else {
+      localStorage.removeItem(SELECTED_MODEL_KEY)
     }
   }, [])
 

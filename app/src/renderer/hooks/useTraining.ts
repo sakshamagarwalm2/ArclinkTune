@@ -16,10 +16,9 @@ const STORAGE_KEY = 'arclink_training_runid'
 
 export function useTraining() {
   const [state, setState] = useState<TrainingState>(() => {
-    const savedRunId = localStorage.getItem(STORAGE_KEY)
     return {
-      runId: savedRunId || null,
-      status: savedRunId ? 'running' : 'idle',
+      runId: null,
+      status: 'idle',
       progress: 0,
       currentStep: 0,
       totalSteps: 0,
@@ -28,6 +27,30 @@ export function useTraining() {
       outputDir: null,
     }
   })
+
+  const checkSavedRun = useCallback(async () => {
+    const savedRunId = localStorage.getItem(STORAGE_KEY)
+    if (savedRunId) {
+      try {
+        const status = await api.training.getStatus(savedRunId) as any
+        if (status.status === 'running') {
+          setState(prev => ({
+            ...prev,
+            runId: savedRunId,
+            status: 'running',
+          }))
+        } else {
+          localStorage.removeItem(STORAGE_KEY)
+        }
+      } catch {
+        localStorage.removeItem(STORAGE_KEY)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    checkSavedRun()
+  }, [checkSavedRun])
 
   const pollStatus = useCallback(async () => {
     if (!state.runId) return

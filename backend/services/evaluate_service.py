@@ -31,7 +31,7 @@ class EvaluateProcess:
         self.status = "stopping"
         if self.process.poll() is None:
             try:
-                if os.name == 'nt':
+                if os.name == "nt":
                     self.process.terminate()
                 else:
                     os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
@@ -59,52 +59,77 @@ class EvaluateService:
         eval_config: Dict[str, Any] = {}
 
         # Core model settings
-        eval_config['model_name_or_path'] = config.get('model_name_or_path', '')
-        eval_config['template'] = config.get('template', 'default')
-        eval_config['finetuning_type'] = config.get('finetuning_type', 'lora')
+        eval_config["model_name_or_path"] = config.get("model_name_or_path", "")
+        eval_config["template"] = config.get("template", "default")
+        eval_config["finetuning_type"] = config.get("finetuning_type", "lora")
 
         # Adapter checkpoint if provided
-        checkpoint_dir = config.get('checkpoint_dir')
+        checkpoint_dir = config.get("checkpoint_dir")
         if checkpoint_dir:
-            eval_config['adapter_name_or_path'] = checkpoint_dir
+            eval_config["adapter_name_or_path"] = checkpoint_dir
 
         # Dataset settings
-        eval_config['dataset'] = config.get('dataset', '')
-        eval_config['dataset_dir'] = config.get('dataset_dir', 'data')
-        eval_config['cutoff_len'] = config.get('cutoff_len', 1024)
-        eval_config['max_samples'] = config.get('max_samples', 100000)
+        eval_config["dataset"] = config.get("dataset", "")
+        eval_config["dataset_dir"] = config.get("dataset_dir", "data")
+        eval_config["cutoff_len"] = config.get("cutoff_len", 1024)
+        eval_config["max_samples"] = config.get("max_samples", 100000)
+
+        # Set val_size to allow do_eval without explicit eval_dataset
+        eval_config["val_size"] = config.get("val_size", 0.1)
 
         # Output
-        eval_config['output_dir'] = config.get('output_dir', f"output/eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        eval_config["output_dir"] = config.get(
+            "output_dir", f"output/eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
 
         # Evaluation mode flags
-        do_predict = config.get('predict', config.get('do_predict', True))
-        eval_config['do_eval'] = True
+        do_predict = config.get("predict", config.get("do_predict", True))
+        eval_config["do_eval"] = True
         if do_predict:
-            eval_config['do_predict'] = True
-            eval_config['predict_with_generate'] = True
+            eval_config["do_predict"] = True
+            eval_config["predict_with_generate"] = True
 
         # Batch size
-        eval_config['per_device_eval_batch_size'] = config.get('batch_size', 2)
+        eval_config["per_device_eval_batch_size"] = config.get("batch_size", 2)
 
         # Generation settings
         if do_predict:
-            eval_config['max_new_tokens'] = config.get('max_new_tokens', 512)
-            eval_config['temperature'] = config.get('temperature', 0.95)
-            eval_config['top_p'] = config.get('top_p', 0.7)
+            eval_config["max_new_tokens"] = config.get("max_new_tokens", 512)
+            eval_config["temperature"] = config.get("temperature", 0.95)
+            eval_config["top_p"] = config.get("top_p", 0.7)
 
         # Logging
-        eval_config['report_to'] = ['none']
+        eval_config["report_to"] = ["none"]
 
         return eval_config
 
     def create_config_file(self, config: Dict[str, Any], output_dir: Path) -> Path:
+        output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         config_path = output_dir / "eval_config.yaml"
 
-        with open(config_path, 'w', encoding='utf-8') as f:
-            yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        config_copy = dict(config)
 
+        # Convert relative paths to absolute paths (same as training service)
+        dataset_dir = config_copy.get("dataset_dir", "")
+        if dataset_dir and not Path(dataset_dir).is_absolute():
+            config_copy["dataset_dir"] = str(self.llamafactory_path / dataset_dir)
+
+        model_path = config_copy.get("model_name_or_path", "")
+        if (
+            model_path
+            and not Path(model_path).is_absolute()
+            and not model_path.startswith("Qwen")
+        ):
+            config_copy["model_name_or_path"] = str(self.llamafactory_path / model_path)
+
+        print(f"[EvaluateService] Creating config at: {config_path}")
+        print(f"[EvaluateService] Config dataset_dir: {config_copy.get('dataset_dir')}")
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(config_copy, f, default_flow_style=False, allow_unicode=True)
+
+        print(f"[EvaluateService] Config file written: {config_path.exists()}")
         return config_path
 
     def parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
@@ -124,8 +149,8 @@ class EvaluateService:
         step_pattern = r"Step\s+(\d+)/(\d+)"
         match = re.search(step_pattern, line)
         if match:
-            result['_current_step'] = int(match.group(1))
-            result['_total_steps'] = int(match.group(2))
+            result["_current_step"] = int(match.group(1))
+            result["_total_steps"] = int(match.group(2))
 
         return result if result else None
 
@@ -139,20 +164,25 @@ class EvaluateService:
                 if run.process.stdout:
                     line = run.process.stdout.readline()
                     if line:
-                        line = line.decode('utf-8', errors='replace').strip()
+                        line = line.decode("utf-8", errors="replace").strip()
                         if line:
                             run.log_lines.append(line)
                             parsed = self.parse_log_line(line)
                             if parsed:
                                 # Update progress from step info
-                                if '_current_step' in parsed and '_total_steps' in parsed:
-                                    total = parsed['_total_steps']
+                                if (
+                                    "_current_step" in parsed
+                                    and "_total_steps" in parsed
+                                ):
+                                    total = parsed["_total_steps"]
                                     if total > 0:
-                                        run.progress = int(parsed['_current_step'] / total * 100)
+                                        run.progress = int(
+                                            parsed["_current_step"] / total * 100
+                                        )
 
                                 # Store actual metrics
                                 for key, value in parsed.items():
-                                    if not key.startswith('_'):
+                                    if not key.startswith("_"):
                                         run.results[key] = value
                     elif run.process.poll() is not None:
                         break
@@ -168,22 +198,34 @@ class EvaluateService:
 
     def start_evaluation(self, config: Dict[str, Any]) -> str:
         run_id = f"eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        output_dir = Path(config.get('output_dir', f'output/{run_id}'))
+        output_dir = Path(config.get("output_dir", f"output/{run_id}"))
+
+        # Validate required fields
+        if not config.get("dataset"):
+            raise ValueError(
+                "Dataset is required for evaluation. Please select a dataset."
+            )
+
+        # Convert relative output_dir to absolute path relative to LlamaFactory
+        if not output_dir.is_absolute():
+            output_dir = self.llamafactory_path / output_dir
+
+        print(f"[EvaluateService] Output directory: {output_dir}")
 
         # Build a training-compatible config with do_eval=True
         eval_config = self._build_eval_config(config)
         config_path = self.create_config_file(eval_config, output_dir)
 
         # Use 'train' command with do_eval=True (not the broken 'eval' command)
-        cmd = [
-            self.venv_python,
-            '-m', 'llamafactory.cli', 'train',
-            str(config_path)
-        ]
+        cmd = [self.venv_python, "-m", "llamafactory.cli", "train", str(config_path)]
 
         env = os.environ.copy()
-        env['PYTHONPATH'] = str(self.src_path)
-        env['DISABLE_VERSION_CHECK'] = '1'
+        env["PYTHONPATH"] = str(self.src_path)
+        env["DISABLE_VERSION_CHECK"] = "1"
+        env["LLAMABOARD_ENABLED"] = "1"  # Enable loss logging to stdout
+        env["LLAMABOARD_WORKDIR"] = str(
+            output_dir
+        )  # Required when LLAMABOARD_ENABLED=1
 
         try:
             process = subprocess.Popen(
@@ -192,13 +234,15 @@ class EvaluateService:
                 stderr=subprocess.STDOUT,
                 env=env,
                 cwd=str(self.llamafactory_path),
-                preexec_fn=os.setsid if os.name != 'nt' else None
+                preexec_fn=os.setsid if os.name != "nt" else None,
             )
 
             run = EvaluateProcess(run_id, eval_config, process)
             self.runs[run_id] = run
 
-            reader = threading.Thread(target=self._read_logs, args=(run_id,), daemon=True)
+            reader = threading.Thread(
+                target=self._read_logs, args=(run_id,), daemon=True
+            )
             reader.start()
 
             return run_id
@@ -241,7 +285,7 @@ class EvaluateService:
                 "start_time": run.start_time.isoformat(),
                 "config_summary": {
                     "model": run.config.get("model_name_or_path", "unknown"),
-                }
+                },
             }
             for run_id, run in self.runs.items()
         ]
@@ -259,10 +303,13 @@ class EvaluateService:
 _evaluate_service: Optional[EvaluateService] = None
 
 
-def get_evaluate_service(llamafactory_path: Optional[Path] = None, venv_python: Optional[str] = None) -> EvaluateService:
+def get_evaluate_service(
+    llamafactory_path: Optional[Path] = None, venv_python: Optional[str] = None
+) -> EvaluateService:
     global _evaluate_service
     if _evaluate_service is None:
         from config import get_settings
+
         settings = get_settings()
         if llamafactory_path is None:
             llamafactory_path = settings.core_path

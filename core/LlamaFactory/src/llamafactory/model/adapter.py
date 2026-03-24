@@ -258,16 +258,42 @@ def _setup_lora_tuning(
                 "lora_dropout": finetuning_args.lora_dropout,
                 "use_rslora": finetuning_args.use_rslora,
                 "use_dora": finetuning_args.use_dora,
-                "modules_to_save": finetuning_args.additional_target,
             }
+            # Filter additional_target to exclude empty strings and target_modules
+            additional_targets = (
+                [t for t in finetuning_args.additional_target if t] if finetuning_args.additional_target else None
+            )
+            if additional_targets:
+                valid_modules_to_save = []
+                target_set = set(target_modules)
+                for name, module in model.named_modules():
+                    if any(target in name for target in additional_targets):
+                        short_name = name.split(".")[-1]
+                        # Only add if not in target_modules (PEFT excludes modules_to_save from adapter targets)
+                        if not isinstance(module, torch.nn.ModuleList) and short_name not in target_set:
+                            valid_modules_to_save.append(short_name)
+                if valid_modules_to_save:
+                    peft_kwargs["modules_to_save"] = valid_modules_to_save
         elif finetuning_args.finetuning_type == "oft":
             peft_kwargs = {
                 "r": finetuning_args.oft_rank,
                 "oft_block_size": finetuning_args.oft_block_size,
                 "target_modules": target_modules,
                 "module_dropout": finetuning_args.module_dropout,
-                "modules_to_save": finetuning_args.additional_target,
             }
+            additional_targets = (
+                [t for t in finetuning_args.additional_target if t] if finetuning_args.additional_target else None
+            )
+            if additional_targets:
+                valid_modules_to_save = []
+                target_set = set(target_modules)
+                for name, module in model.named_modules():
+                    if any(target in name for target in additional_targets):
+                        short_name = name.split(".")[-1]
+                        if not isinstance(module, torch.nn.ModuleList) and short_name not in target_set:
+                            valid_modules_to_save.append(short_name)
+                if valid_modules_to_save:
+                    peft_kwargs["modules_to_save"] = valid_modules_to_save
 
         if model_args.use_kt:
             if finetuning_args.finetuning_type == "oft":

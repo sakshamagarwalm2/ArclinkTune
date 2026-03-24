@@ -18,7 +18,7 @@ import { DatasetBrowser } from '@/components/DatasetBrowser'
 import { 
   Play, Square, Save, FolderOpen, Eye, Settings, 
   Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight,
-  Info, Heart, Sparkles, Box, RefreshCw, Search, CheckCircle2, XCircle, Loader2, Wand2
+  Info, Heart, Sparkles, Box, RefreshCw, Search, CheckCircle2, XCircle, Loader2
 } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -148,6 +148,8 @@ export function TrainPage() {
   
   const prevSelectedModelRef = useRef<string>('')
   const [previewCommand, setPreviewCommand] = useState('')
+  const [isStarting, setIsStarting] = useState(false)
+  const [initialMountDone, setInitialMountDone] = useState(false)
   
   const [activeSubTab, setActiveSubTab] = useState<'freeze' | 'rlhf' | 'galore' | 'apollo' | 'badam'>('freeze')
   const [config, setConfig] = useState<TrainingConfig>({
@@ -175,7 +177,7 @@ export function TrainPage() {
     lora_rank: 8,
     lora_alpha: 16,
     lora_dropout: 0.05,
-    lora_target: 'all',
+    lora_target: 'q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj',
     loraplus_lr_ratio: 0,
     use_rslora: false,
     use_dora: false,
@@ -258,7 +260,21 @@ export function TrainPage() {
   }, [apiTemplates, templates.length, setTemplates])
 
   useEffect(() => {
-    if (selectedModel && selectedModel.path && selectedModel.path !== prevSelectedModelRef.current) {
+    if (!initialMountDone) {
+      setInitialMountDone(true)
+      if (selectedModel?.path) {
+        prevSelectedModelRef.current = selectedModel.path
+        setConfig(prev => ({
+          ...prev,
+          model_name_or_path: selectedModel.path,
+          template: selectedModel.template || prev.template,
+        }))
+      }
+    }
+  }, [initialMountDone])
+
+  useEffect(() => {
+    if (initialMountDone && selectedModel?.path && selectedModel.path !== prevSelectedModelRef.current) {
       prevSelectedModelRef.current = selectedModel.path
       setConfig(prev => ({
         ...prev,
@@ -266,16 +282,20 @@ export function TrainPage() {
         template: selectedModel.template || prev.template,
       }))
     }
-  }, [selectedModel])
+  }, [selectedModel?.path, selectedModel?.template])
 
   useEffect(() => {
     if (isCompleted && config.output_dir) {
-      const checkpointPath = `${config.output_dir}/checkpoint-*`
+      // Use output_dir directly since adapter files are saved there
+      const checkpointPath = config.output_dir
       setLastTrainingResult({
         outputDir: config.output_dir,
         modelPath: config.model_name_or_path,
         finetuningType: config.finetuning_type,
         checkpointPath: checkpointPath,
+        dataset: config.dataset,
+        datasetDir: config.dataset_dir,
+        template: config.template,
         timestamp: Date.now(),
       })
     }
@@ -341,6 +361,8 @@ export function TrainPage() {
   }
 
   const handleStart = async () => {
+    if (isStarting || isRunning) return
+    
     const errors: string[] = []
     
     if (!config.model_name_or_path) errors.push('Model path is required')
@@ -349,60 +371,22 @@ export function TrainPage() {
     if (config.output_dir && config.output_dir.includes(' ')) errors.push('Output directory should not contain spaces')
     
     if (errors.length > 0) {
+      console.warn('Validation errors:', errors)
       return
     }
 
+    setIsStarting(true)
     try {
       await startTraining(config as any)
     } catch (error) {
       console.error('Training error:', error)
+    } finally {
+      setIsStarting(false)
     }
   }
 
   const handleStop = async () => {
     await stopTraining()
-  }
-
-  const handleTrainWithDefaults = () => {
-    if (selectedModel && selectedModel.path) {
-      setConfig(prev => ({
-        ...prev,
-        model_name_or_path: selectedModel.path,
-        template: selectedModel.template || 'default',
-        finetuning_type: 'lora',
-        dataset: 'alpaca',
-        dataset_dir: 'data',
-        learning_rate: 5e-5,
-        num_train_epochs: 3.0,
-        cutoff_len: 2048,
-        per_device_train_batch_size: 2,
-        gradient_accumulation_steps: 8,
-        output_dir: `output/train_${Date.now()}`,
-        bf16: true,
-        lora_rank: 8,
-        lora_alpha: 16,
-        lora_dropout: 0.05,
-        lora_target: 'all',
-      }))
-    } else {
-      setConfig(prev => ({
-        ...prev,
-        finetuning_type: 'lora',
-        dataset: 'alpaca',
-        dataset_dir: 'data',
-        learning_rate: 5e-5,
-        num_train_epochs: 3.0,
-        cutoff_len: 2048,
-        per_device_train_batch_size: 2,
-        gradient_accumulation_steps: 8,
-        output_dir: `output/train_${Date.now()}`,
-        bf16: true,
-        lora_rank: 8,
-        lora_alpha: 16,
-        lora_dropout: 0.05,
-        lora_target: 'all',
-      }))
-    }
   }
 
   const handleEvaluate = () => {
@@ -1036,7 +1020,7 @@ export function TrainPage() {
                   <Input 
                     value={config.lora_target} 
                     onChange={(e) => updateConfig('lora_target', e.target.value)}
-                    placeholder="all, q_proj, v_proj"
+                    placeholder="q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"
                   />
                 </div>
 
@@ -1530,13 +1514,6 @@ export function TrainPage() {
                 </Button>
                 <InfoTooltip content="Shows the raw command line that will be executed." impact="Helps power-users verify the final argument string before starting." />
               </div>
-              
-              <div className="flex items-center gap-1 group">
-                <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={handleTrainWithDefaults}>
-                  <Wand2 className="w-4 h-4 mr-1" /> <span className="sm:inline">Train with Defaults</span>
-                </Button>
-                <InfoTooltip content="Load recommended default settings for quick training." impact="Applies sensible defaults for common fine-tuning scenarios." />
-              </div>
 
               <div className="flex items-center gap-1 group">
                 <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
@@ -1571,8 +1548,8 @@ export function TrainPage() {
                       </Button>
                     </>
                   )}
-                  <Button size="sm" onClick={handleStart} className="w-full sm:w-auto">
-                    <Play className="w-4 h-4 mr-1" /> {(isCompleted || isFailed) ? 'Restart Training' : 'Start Training'}
+                  <Button size="sm" onClick={handleStart} className="w-full sm:w-auto" disabled={isStarting || !config.model_name_or_path || !config.dataset}>
+                    <Play className="w-4 h-4 mr-1" /> {(isCompleted || isFailed) ? 'Restart Training' : isStarting ? 'Starting...' : 'Start Training'}
                   </Button>
                   <InfoTooltip content="Initializes the backend engine and starts the training job." impact="Locks resources and begins updating model weights based on your config." />
                 </div>
@@ -1600,7 +1577,63 @@ export function TrainPage() {
             </div>
           )}
 
-          {lossHistory.length > 0 && (
+          {(isRunning || isCompleted) && (
+            <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <LineChart className="w-4 h-4 mr-2 text-neon-cyan" />
+                  <span className="text-sm font-medium">Loss Curve</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {lossHistory.length > 0 ? `${lossHistory.length} steps recorded` : 'Waiting for data...'}
+                </span>
+              </div>
+              <div className="h-[180px] w-full">
+                {lossHistory.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart data={lossHistory.map((loss, i) => ({ step: i + 1, loss }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis 
+                        dataKey="step" 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={10}
+                        tickLine={false}
+                      />
+                      <YAxis 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={10}
+                        tickLine={false}
+                        domain={['auto', 'auto']}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--card))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          fontSize: '12px'
+                        }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="loss" 
+                        stroke="#22d3ee" 
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4, fill: '#22d3ee' }}
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                    Waiting for training to start and log loss values...
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {lossHistory.length > 0 && !isRunning && !isCompleted && (
             <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">

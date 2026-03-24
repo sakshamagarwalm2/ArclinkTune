@@ -54,26 +54,64 @@ class TrainingService:
         self._log_reader_thread: Optional[threading.Thread] = None
 
     def create_config_file(self, config: Dict[str, Any], output_dir: Path) -> Path:
+        output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         config_path = output_dir / "train_config.yaml"
 
-        with open(config_path, "w", encoding="utf-8") as f:
-            yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+        config_copy = dict(config)
 
+        dataset_dir = config_copy.get("dataset_dir", "")
+        if dataset_dir and not Path(dataset_dir).is_absolute():
+            config_copy["dataset_dir"] = str(self.llamafactory_path / dataset_dir)
+
+        model_path = config_copy.get("model_name_or_path", "")
+        if (
+            model_path
+            and not Path(model_path).is_absolute()
+            and not model_path.startswith("Qwen")
+        ):
+            config_copy["model_name_or_path"] = str(self.llamafactory_path / model_path)
+
+        print(f"[TrainingService] Creating config at: {config_path}")
+        print(f"[TrainingService] Config dataset_dir: {config_copy.get('dataset_dir')}")
+        print(f"[TrainingService] Config exists: {config_path.exists()}")
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(config_copy, f, default_flow_style=False, allow_unicode=True)
+
+        print(f"[TrainingService] Config file written: {config_path.exists()}")
         return config_path
 
     def parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
-        loss_pattern = r"'loss':\s*([0-9.]+)"
-        step_pattern = r"Step\s*(\d+)/(\d+)"
-        match_loss = re.search(loss_pattern, line)
-        match_step = re.search(step_pattern, line)
+        loss_patterns = [
+            r"'loss':\s*([0-9.]+)",
+            r'"loss":\s*([0-9.]+)',
+            r"loss\s*=\s*([0-9.]+)",
+            r"loss:\s*([0-9.]+)",
+        ]
+        step_patterns = [
+            r"Step\s*(\d+)/(\d+)",
+            r"(\d+)/(\d+)\s*\[",
+            r"step:\s*(\d+)",
+        ]
 
         result = {}
-        if match_loss:
-            result["loss"] = float(match_loss.group(1))
-        if match_step:
-            result["current_step"] = int(match_step.group(1))
-            result["total_steps"] = int(match_step.group(2))
+
+        for pattern in loss_patterns:
+            match_loss = re.search(pattern, line, re.IGNORECASE)
+            if match_loss:
+                result["loss"] = float(match_loss.group(1))
+                break
+
+        for pattern in step_patterns:
+            match_step = re.search(pattern, line, re.IGNORECASE)
+            if match_step:
+                if len(match_step.groups()) >= 2:
+                    result["current_step"] = int(match_step.group(1))
+                    result["total_steps"] = int(match_step.group(2))
+                else:
+                    result["current_step"] = int(match_step.group(1))
+                break
 
         return result if result else None
 
@@ -115,14 +153,33 @@ class TrainingService:
 
     def start_training(self, config: Dict[str, Any]) -> tuple:
         run_id = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        output_dir = Path(config.get("output_dir", f"output/{run_id}"))
+        output_dir_str = config.get("output_dir", f"output/{run_id}")
+
+        print(f"[TrainingService] start_training called")
+        print(f"[TrainingService] output_dir from config: {output_dir_str}")
+        print(f"[TrainingService] run_id: {run_id}")
+
+        output_dir = Path(output_dir_str)
+        if not output_dir.is_absolute():
+            output_dir = self.llamafactory_path / output_dir
+
+        print(f"[TrainingService] final output_dir: {output_dir}")
 
         config_path = self.create_config_file(config, output_dir)
 
         cmd = [self.venv_python, "-m", "llamafactory.cli", "train", str(config_path)]
 
+        print(f"[TrainingService] Full command: {' '.join(cmd)}")
+        print(f"[TrainingService] Working directory: {self.llamafactory_path}")
+        print(f"[TrainingService] Config path: {config_path}")
+        print(f"[TrainingService] Config path exists: {config_path.exists()}")
+
         env = os.environ.copy()
         env["PYTHONPATH"] = str(self.src_path)
+        env["LLAMABOARD_ENABLED"] = "1"  # Enable loss logging to stdout
+        env["LLAMABOARD_WORKDIR"] = str(
+            output_dir
+        )  # Required when LLAMABOARD_ENABLED=1
 
         try:
             process = subprocess.Popen(

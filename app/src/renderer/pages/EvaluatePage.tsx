@@ -28,6 +28,15 @@ export function EvaluatePage() {
       setModelPath(lastTrainingResult.modelPath)
       setFinetuningType(lastTrainingResult.finetuningType)
       setCheckpointPath(lastTrainingResult.checkpointPath)
+      if (lastTrainingResult.dataset) {
+        setDataset(lastTrainingResult.dataset)
+      }
+      if (lastTrainingResult.datasetDir) {
+        setDatasetDir(lastTrainingResult.datasetDir)
+      }
+      if (lastTrainingResult.template && lastTrainingResult.template !== 'default') {
+        setTemplate(lastTrainingResult.template)
+      }
       setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Loaded training result from: ${lastTrainingResult.outputDir}`])
     }
   }, [lastTrainingResult])
@@ -262,14 +271,23 @@ export function EvaluatePage() {
             <div className="space-y-2">
               <div className="flex items-center">
                 <label className="text-sm font-medium">Dataset</label>
-                <InfoTooltip content="Benchmark datasets to use (e.g., MMLU, GSM8K)." impact="Different datasets test different reasoning and knowledge skills." />
+                <InfoTooltip content="Select the dataset used for training or evaluation." impact="Must match the dataset defined in dataset_info.json" />
               </div>
-              <Input 
-                value={dataset} 
-                onChange={(e) => setDataset(e.target.value)}
-                placeholder="mmlu, ceval, math"
-              />
-              <p className="text-xs text-muted-foreground">Comma-separated benchmark names</p>
+              <Select value={dataset} onValueChange={setDataset}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a dataset" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="alpaca_sample">alpaca_sample</SelectItem>
+                  <SelectItem value="sharegpt_sample">sharegpt_sample</SelectItem>
+                  <SelectItem value="alpaca">alpaca</SelectItem>
+                  <SelectItem value="identity">identity</SelectItem>
+                  <SelectItem value="openorca">openorca</SelectItem>
+                  <SelectItem value="code_alpaca">code_alpaca</SelectItem>
+                  <SelectItem value="gsm8k">gsm8k</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Select the dataset to evaluate on</p>
             </div>
 
             <div className="space-y-2">

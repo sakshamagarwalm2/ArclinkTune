@@ -178,8 +178,26 @@ class TrainingConfig(BaseModel):
         result["do_train"] = True
 
         # Remove fields that are not LlamaFactory args
-        for key in ["batch_size", "extra_args", "booster", "ds_stage", "ds_offload"]:
+        # These fields exist in our config but aren't used by LlamaFactory
+        unsupported_fields = [
+            "batch_size",
+            "extra_args",
+            "booster",
+            "ds_stage",
+            "ds_offload",
+            "neftune_alpha",  # Not supported in current LlamaFactory version
+        ]
+        for key in unsupported_fields:
             result.pop(key, None)
+
+        # Only include optional fields if they have non-default values
+        # This prevents sending None/unset values to LlamaFactory
+        optional_fields_to_remove_if_none = [
+            "project",
+        ]
+        for key in optional_fields_to_remove_if_none:
+            if result.get(key) is None:
+                result.pop(key, None)
 
         # Map booster to actual LlamaFactory model args
         booster = self.booster
