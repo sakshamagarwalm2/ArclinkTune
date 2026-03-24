@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import json as _json
+from pathlib import Path
 
 from config import get_settings
 
@@ -32,10 +34,12 @@ class EvaluateConfig(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         result = self.model_dump(exclude_none=True)
-        if not result.get('output_dir'):
-            result['output_dir'] = f"output/eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        if 'predict' in result:
-            result['do_predict'] = result.pop('predict')
+        if not result.get("output_dir"):
+            result["output_dir"] = (
+                f"output/eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
+        if "predict" in result:
+            result["do_predict"] = result.pop("predict")
         return result
 
 
@@ -84,10 +88,10 @@ async def preview_evaluation(config: EvaluateConfig):
         eval_cfg["top_p"] = config.top_p
     if config.output_dir:
         eval_cfg["output_dir"] = config.output_dir
-    
+
     return {
         "command": "llamafactory-cli train <eval_config.yaml>  # with do_eval=True",
-        "config": eval_cfg
+        "config": eval_cfg,
     }
 
 
@@ -122,3 +126,51 @@ async def get_evaluation_logs(run_id: str, lines: int = 100):
 async def delete_run(run_id: str):
     success = evaluate_service.delete_run(run_id)
     return {"success": success}
+
+
+@router.get("/results/{output_dir:path}")
+async def get_evaluation_results(output_dir: str):
+    """Read evaluation results from output directory."""
+    output_path = settings.core_path / output_dir
+    results = {"found": False, "metrics": {}}
+
+    for filename in [
+        "all_results.json",
+        "eval_results.json",
+        "predict_results.json",
+        "train_results.json",
+    ]:
+        file_path = output_path / filename
+        if file_path.exists():
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    data = _json.load(f)
+                    results[filename.replace(".json", "")] = data
+                    results["found"] = True
+                    # Merge metrics
+                    for k, v in data.items():
+                        if isinstance(v, (int, float)):
+                            results["metrics"][k] = v
+            except:
+                continue
+
+    # Also read trainer_log.jsonl for eval loss history
+    log_path = output_path / "trainer_log.jsonl"
+    if log_path.exists():
+        eval_history = []
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            entry = _json.loads(line)
+                            if "eval_loss" in entry or "eval_accuracy" in entry:
+                                eval_history.append(entry)
+                        except:
+                            continue
+        except:
+            pass
+        results["eval_history"] = eval_history
+
+    return results

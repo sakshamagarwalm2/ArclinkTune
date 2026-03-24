@@ -15,13 +15,13 @@ import { useApp } from '@/contexts/AppContext'
 import { cn } from '@/lib/utils'
 import { useTraining } from '@/hooks/useTraining'
 import { DatasetBrowser } from '@/components/DatasetBrowser'
+import { LossChart } from '@/components/charts/LossChart'
 import { 
   Play, Square, Save, FolderOpen, Eye, Settings, 
   Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight,
   Info, Heart, Sparkles, Box, RefreshCw, Search, CheckCircle2, XCircle, Loader2
 } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
-import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const TRAINING_STAGES = [
   { value: 'sft', label: 'SFT (Supervised Fine-tuning)' },
@@ -150,6 +150,8 @@ export function TrainPage() {
   const [previewCommand, setPreviewCommand] = useState('')
   const [isStarting, setIsStarting] = useState(false)
   const [initialMountDone, setInitialMountDone] = useState(false)
+  const [trainerLogData, setTrainerLogData] = useState<any[]>([])
+  const trainerLogIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const [activeSubTab, setActiveSubTab] = useState<'freeze' | 'rlhf' | 'galore' | 'apollo' | 'badam'>('freeze')
   const [config, setConfig] = useState<TrainingConfig>({
@@ -298,6 +300,52 @@ export function TrainPage() {
         template: config.template,
         timestamp: Date.now(),
       })
+    }
+  }, [isCompleted, config.output_dir])
+
+  // Fetch trainer_log.jsonl for loss chart
+  const fetchTrainerLog = async (outputDir: string) => {
+    try {
+      const response = await fetch(`/api/training/trainer-log/${outputDir}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.entries && data.entries.length > 0) {
+          setTrainerLogData(data.entries)
+        }
+      }
+    } catch (e) {
+      // Ignore fetch errors during training
+    }
+  }
+
+  // Poll trainer_log.jsonl while training is running
+  useEffect(() => {
+    if (isRunning && config.output_dir) {
+      // Initial fetch
+      fetchTrainerLog(config.output_dir)
+      
+      // Poll every 3 seconds
+      trainerLogIntervalRef.current = setInterval(() => {
+        fetchTrainerLog(config.output_dir)
+      }, 3000)
+      
+      return () => {
+        if (trainerLogIntervalRef.current) {
+          clearInterval(trainerLogIntervalRef.current)
+          trainerLogIntervalRef.current = null
+        }
+      }
+    }
+  }, [isRunning, config.output_dir])
+
+  // Fetch trainer log on completion
+  useEffect(() => {
+    if (isCompleted && config.output_dir) {
+      fetchTrainerLog(config.output_dir)
+      if (trainerLogIntervalRef.current) {
+        clearInterval(trainerLogIntervalRef.current)
+        trainerLogIntervalRef.current = null
+      }
     }
   }, [isCompleted, config.output_dir])
 
@@ -1585,55 +1633,14 @@ export function TrainPage() {
                   <span className="text-sm font-medium">Loss Curve</span>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {lossHistory.length > 0 ? `${lossHistory.length} steps recorded` : 'Waiting for data...'}
+                  {trainerLogData.length > 0 ? `${trainerLogData.length} data points` : 'Waiting for data...'}
                 </span>
               </div>
-              <div className="h-[180px] w-full">
-                {lossHistory.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsLineChart data={lossHistory.map((loss, i) => ({ step: i + 1, loss }))}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis 
-                        dataKey="step" 
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={10}
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        stroke="hsl(var(--muted-foreground))"
-                        fontSize={10}
-                        tickLine={false}
-                        domain={['auto', 'auto']}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }}
-                        labelStyle={{ color: 'hsl(var(--foreground))' }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="loss" 
-                        stroke="#22d3ee" 
-                        strokeWidth={2}
-                        dot={false}
-                        activeDot={{ r: 4, fill: '#22d3ee' }}
-                      />
-                    </RechartsLineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                    Waiting for training to start and log loss values...
-                  </div>
-                )}
-              </div>
+              <LossChart data={trainerLogData} />
             </div>
           )}
 
-          {lossHistory.length > 0 && !isRunning && !isCompleted && (
+          {trainerLogData.length > 0 && !isRunning && !isCompleted && (
             <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
@@ -1641,45 +1648,10 @@ export function TrainPage() {
                   <span className="text-sm font-medium">Loss Curve</span>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {lossHistory.length} steps recorded
+                  {trainerLogData.length} data points
                 </span>
               </div>
-              <div className="h-[180px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsLineChart data={lossHistory.map((loss, i) => ({ step: i + 1, loss }))}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="step" 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={10}
-                      tickLine={false}
-                    />
-                    <YAxis 
-                      stroke="hsl(var(--muted-foreground))"
-                      fontSize={10}
-                      tickLine={false}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px'
-                      }}
-                      labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="loss" 
-                      stroke="#22d3ee" 
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 4, fill: '#22d3ee' }}
-                    />
-                  </RechartsLineChart>
-                </ResponsiveContainer>
-              </div>
+              <LossChart data={trainerLogData} />
             </div>
           )}
           <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto">

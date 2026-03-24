@@ -12,15 +12,12 @@
     "file_name": "sharegpt_sample.json",
     "formatting": "sharegpt",
     "columns": {
-      "messages": "conversations"
-    },
-    "tags": {
+      "messages": "conversations",
       "role_tag": "from",
       "content_tag": "value",
       "user_tag": "human",
       "assistant_tag": "gpt"
-    },
-    "description": "Sample ShareGPT format dataset with multi-turn conversations"
+    }
   },
   "alpaca": {
     "file_name": "alpaca.json",

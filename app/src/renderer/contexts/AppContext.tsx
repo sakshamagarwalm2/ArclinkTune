@@ -34,6 +34,16 @@ export interface TrainingResult {
   timestamp: number
 }
 
+export interface EvalResult {
+  modelPath: string
+  checkpointPath: string
+  template: string
+  finetuningType: string
+  outputDir: string
+  metrics: Record<string, any>
+  timestamp: number
+}
+
 interface AppContextType {
   selectedModel: ModelInfo | null
   setSelectedModel: (model: ModelInfo | null) => void
@@ -54,12 +64,15 @@ interface AppContextType {
   
   lastTrainingResult: TrainingResult | null
   setLastTrainingResult: (result: TrainingResult | null) => void
+  lastEvalResult: EvalResult | null
+  setLastEvalResult: (result: EvalResult | null) => void
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 const DOWNLOADED_MODELS_FILE = 'downloaded_models.json'
 const TRAINING_RESULT_KEY = 'arclink_last_training_result'
+const EVAL_RESULT_KEY = 'arclink_last_eval_result'
 const SELECTED_MODEL_KEY = 'arclink_selected_model'
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -77,6 +90,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lastTrainingResult, setLastTrainingResultState] = useState<TrainingResult | null>(() => {
     try {
       const saved = localStorage.getItem(TRAINING_RESULT_KEY)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
+  const [lastEvalResult, setLastEvalResultState] = useState<EvalResult | null>(() => {
+    try {
+      const saved = localStorage.getItem(EVAL_RESULT_KEY)
       return saved ? JSON.parse(saved) : null
     } catch {
       return null
@@ -148,6 +169,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const setLastEvalResult = useCallback((result: EvalResult | null) => {
+    setLastEvalResultState(result)
+    if (result) {
+      localStorage.setItem(EVAL_RESULT_KEY, JSON.stringify(result))
+    } else {
+      localStorage.removeItem(EVAL_RESULT_KEY)
+    }
+  }, [])
+
   useEffect(() => {
     loadDownloadedModels()
   }, [loadDownloadedModels])
@@ -169,6 +199,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTemplates,
       lastTrainingResult,
       setLastTrainingResult,
+      lastEvalResult,
+      setLastEvalResult,
     }}>
       {children}
     </AppContext.Provider>

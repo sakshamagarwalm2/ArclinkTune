@@ -354,6 +354,49 @@ async def get_loss_history(run_id: str):
     return {"loss_history": status.get("loss_history", [])}
 
 
+@router.get("/trainer-log/{output_dir:path}")
+async def get_trainer_log(output_dir: str):
+    """Read trainer_log.jsonl from output directory for loss graph plotting."""
+    log_path = settings.core_path / output_dir / "trainer_log.jsonl"
+    if not log_path.exists():
+        return {"entries": [], "found": False}
+
+    entries = []
+    try:
+        with open(log_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entry = _json.loads(line)
+                        entries.append(entry)
+                    except:
+                        continue
+    except Exception as e:
+        return {"entries": entries, "found": True, "error": str(e)}
+
+    return {"entries": entries, "found": True}
+
+
+@router.get("/results/{output_dir:path}")
+async def get_training_results(output_dir: str):
+    """Read training results (train_results.json, all_results.json)."""
+    output_path = settings.core_path / output_dir
+    results = {"found": False}
+
+    for filename in ["train_results.json", "all_results.json", "eval_results.json"]:
+        file_path = output_path / filename
+        if file_path.exists():
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    results[filename.replace(".json", "")] = _json.load(f)
+                    results["found"] = True
+            except:
+                continue
+
+    return results
+
+
 @router.delete("/runs/{run_id}")
 async def delete_run(run_id: str):
     success = training_service.delete_run(run_id)

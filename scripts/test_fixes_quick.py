@@ -106,6 +106,12 @@ test(
     "Loss is logged in format: 'loss': 1.2345",
 )
 
+test(
+    "4c. Callback checks train_loss",
+    "train_loss" in callback_code,
+    "Callback also checks train_loss key from trainer",
+)
+
 # TEST 5: Check frontend lora_target default
 print("\n--- TEST 5: Frontend lora_target default ---")
 train_page_path = "C:/Users/Astrallink/Desktop/AstralLink/ArclinkTune/app/src/renderer/pages/TrainPage.tsx"
@@ -217,6 +223,12 @@ test(
     "Evaluate service validates dataset is not empty",
 )
 
+test(
+    "10b. Evaluate get_status returns output_dir",
+    '"output_dir": run.config.get' in eval_service_code,
+    "Status response includes output_dir for results fetching",
+)
+
 # TEST 11: Check checkpoint path fix
 print("\n--- TEST 11: Checkpoint path uses output_dir ---")
 with open("app/src/renderer/pages/TrainPage.tsx", "r", encoding="utf-8") as f:
@@ -229,6 +241,108 @@ test(
     "11a. Checkpoint path uses output_dir directly",
     has_direct_path and not has_wildcard,
     "Checkpoint path does not use wildcard pattern",
+)
+
+# TEST 12: Check LossChart component
+print("\n--- TEST 12: LossChart component exists ---")
+loss_chart_path = "app/src/renderer/components/charts/LossChart.tsx"
+test(
+    "12a. LossChart component exists",
+    Path(loss_chart_path).exists(),
+    "LossChart.tsx file exists",
+)
+
+if Path(loss_chart_path).exists():
+    with open(loss_chart_path, "r", encoding="utf-8") as f:
+        loss_chart_code = f.read()
+    test(
+        "12b. LossChart uses Recharts",
+        "LineChart" in loss_chart_code and "Line" in loss_chart_code,
+        "LossChart uses Recharts LineChart component",
+    )
+    test(
+        "12c. LossChart has smoothing",
+        "smooth" in loss_chart_code.lower() or "ema" in loss_chart_code.lower(),
+        "LossChart implements smoothing",
+    )
+
+# TEST 13: Check trainer-log endpoint
+print("\n--- TEST 13: Trainer log endpoint exists ---")
+with open("backend/routers/training.py", "r") as f:
+    training_code = f.read()
+
+test(
+    "13a. Trainer log endpoint exists",
+    "trainer-log" in training_code and "trainer_log.jsonl" in training_code,
+    "Backend has trainer-log endpoint",
+)
+
+# TEST 14: Check evaluation results endpoint
+print("\n--- TEST 14: Evaluation results endpoint exists ---")
+with open("backend/routers/evaluate.py", "r") as f:
+    eval_code = f.read()
+
+test(
+    "14a. Evaluation results endpoint exists",
+    "/results/" in eval_code and "all_results.json" in eval_code,
+    "Backend has evaluation results endpoint",
+)
+
+# TEST 15: Check Chat with Model button in EvaluatePage
+print("\n--- TEST 15: Chat with Model button ---")
+with open("app/src/renderer/pages/EvaluatePage.tsx", "r", encoding="utf-8") as f:
+    eval_page_code = f.read()
+
+test(
+    "15a. EvaluatePage has Chat with Model button",
+    "Chat with Model" in eval_page_code,
+    "Chat with Model button exists",
+)
+
+test(
+    "15b. Chat button uses navigate to /chat",
+    "navigate('/chat'" in eval_page_code or 'navigate("/chat"' in eval_page_code,
+    "Chat button navigates to chat page",
+)
+
+test(
+    "15c. Chat button passes model info",
+    "modelPath:" in eval_page_code and "checkpointPath:" in eval_page_code,
+    "Chat button passes model and checkpoint info",
+)
+
+# TEST 16: Check ChatPage handles navigation state
+print("\n--- TEST 16: ChatPage handles navigation state ---")
+with open("app/src/renderer/pages/ChatPage.tsx", "r", encoding="utf-8") as f:
+    chat_page_code = f.read()
+
+test(
+    "16a. ChatPage imports useLocation",
+    "useLocation" in chat_page_code,
+    "ChatPage imports useLocation",
+)
+
+test(
+    "16b. ChatPage reads navigation state",
+    "location.state" in chat_page_code,
+    "ChatPage reads navigation state",
+)
+
+# TEST 17: Check AppContext has EvalResult
+print("\n--- TEST 17: AppContext has EvalResult ---")
+with open("app/src/renderer/contexts/AppContext.tsx", "r", encoding="utf-8") as f:
+    app_context_code = f.read()
+
+test(
+    "17a. AppContext has EvalResult interface",
+    "EvalResult" in app_context_code,
+    "EvalResult interface exists",
+)
+
+test(
+    "17b. AppContext has setLastEvalResult",
+    "setLastEvalResult" in app_context_code,
+    "setLastEvalResult function exists",
 )
 
 # Summary

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,7 @@ const INFER_DTYPES = [
 
 export function ChatPage() {
   const { selectedModel, setSelectedModel, templates, setTemplates } = useApp()
+  const location = useLocation()
   
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -54,6 +55,25 @@ export function ChatPage() {
   const [topP, setTopP] = useState(0.7)
   const [repetitionPenalty, setRepetitionPenalty] = useState(1.1)
   const [stream, setStream] = useState(false)
+
+  // Handle navigation state from Evaluation page
+  useEffect(() => {
+    const navState = location.state as any
+    if (navState) {
+      if (navState.modelPath) {
+        setModelPath(navState.modelPath)
+      }
+      if (navState.checkpointPath) {
+        setCheckpointPath(navState.checkpointPath)
+      }
+      if (navState.template && navState.template !== 'default') {
+        setTemplate(navState.template)
+      }
+      if (navState.finetuningType) {
+        setFinetuningType(navState.finetuningType)
+      }
+    }
+  }, [location.state])
 
   const DEFAULT_SETTINGS = {
     maxTokens: 1024,

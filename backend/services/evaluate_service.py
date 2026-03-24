@@ -260,6 +260,7 @@ class EvaluateService:
             "progress": run.progress,
             "results": run.results,
             "elapsed_seconds": run.get_elapsed_time(),
+            "output_dir": run.config.get("output_dir", ""),
         }
 
     def get_logs(self, run_id: str, lines: int = 100) -> List[str]:

@@ -275,7 +275,7 @@ class LogCallback(TrainerCallback):
         logs = dict(
             current_steps=self.cur_steps,
             total_steps=self.max_steps,
-            loss=state.log_history[-1].get("loss"),
+            loss=state.log_history[-1].get("loss") or state.log_history[-1].get("train_loss"),
             eval_loss=state.log_history[-1].get("eval_loss"),
             predict_loss=state.log_history[-1].get("predict_loss"),
             reward=state.log_history[-1].get("reward"),

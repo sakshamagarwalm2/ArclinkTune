@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,20 +8,24 @@ import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight } from 'lucide-react'
+import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight, MessageSquare } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { api } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
-
+import { LossChart } from '@/components/charts/LossChart'
 import { cn } from '@/lib/utils'
 
 export function EvaluatePage() {
-  const { lastTrainingResult } = useApp()
+  const { lastTrainingResult, setLastEvalResult } = useApp()
+  const navigate = useNavigate()
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [logs, setLogs] = useState<string[]>([])
   const [runId, setRunId] = useState<string | null>(null)
   const [results, setResults] = useState<Record<string, number>>({})
+  const [evalMetrics, setEvalMetrics] = useState<Record<string, any>>({})
+  const [evalHistory, setEvalHistory] = useState<any[]>([])
+  const [isCompleted, setIsCompleted] = useState(false)
 
   useEffect(() => {
     if (lastTrainingResult) {
@@ -106,6 +110,26 @@ export function EvaluatePage() {
         setIsRunning(false)
         if (status.status === 'completed') {
           setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation completed!`])
+          setIsCompleted(true)
+          
+          // Fetch detailed evaluation results
+          try {
+            const outputDir = status.config?.output_dir || ''
+            if (outputDir) {
+              const response = await fetch(`/api/evaluate/results/${outputDir}`)
+              if (response.ok) {
+                const data = await response.json()
+                if (data.metrics) {
+                  setEvalMetrics(data.metrics)
+                }
+                if (data.eval_history) {
+                  setEvalHistory(data.eval_history)
+                }
+              }
+            }
+          } catch (e) {
+            console.error('Failed to fetch eval results:', e)
+          }
         }
       }
     } catch (error) {
@@ -427,7 +451,8 @@ export function EvaluatePage() {
       {Object.keys(results).length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Results</CardTitle>
+            <CardTitle className="text-base">Evaluation Results</CardTitle>
+            <CardDescription>Metrics computed during evaluation</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -437,6 +462,71 @@ export function EvaluatePage() {
                   <p className="text-2xl font-bold text-primary">{(value * 100).toFixed(2)}%</p>
                 </div>
               ))}
+            </div>
+            
+            {/* Additional metrics from evaluation files */}
+            {Object.keys(evalMetrics).length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">Detailed Metrics</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Object.entries(evalMetrics)
+                    .filter(([k]) => !k.startsWith('total_') && !k.startsWith('epoch'))
+                    .slice(0, 12)
+                    .map(([key, value]) => (
+                      <div key={key} className="p-2 bg-muted/20 rounded border border-border/30">
+                        <p className="text-xs text-muted-foreground truncate">{key}</p>
+                        <p className="text-lg font-semibold text-primary">
+                          {typeof value === 'number' 
+                            ? (value < 1 && value > 0 ? `${(value * 100).toFixed(1)}%` : value.toFixed(4))
+                            : value}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Evaluation loss chart */}
+            {evalHistory.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-medium mb-2">Evaluation Loss</h4>
+                <LossChart data={evalHistory} showEval={true} />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Chat with Model button - appears immediately after evaluation completes */}
+      {isCompleted && !isRunning && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-medium flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  Chat with Fine-tuned Model
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Load your trained model and start chatting with it.
+                </p>
+              </div>
+              <Button 
+                onClick={() => {
+                  // Navigate to chat page with model info
+                  navigate('/chat', { 
+                    state: { 
+                      modelPath: lastTrainingResult?.modelPath,
+                      checkpointPath: lastTrainingResult?.checkpointPath,
+                      template: lastTrainingResult?.template || template,
+                      finetuningType: lastTrainingResult?.finetuningType || finetuningType,
+                    }
+                  })
+                }}
+                className="shrink-0"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" /> Chat with Model
+              </Button>
             </div>
           </CardContent>
         </Card>
