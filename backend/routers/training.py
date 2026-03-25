@@ -176,6 +176,10 @@ class TrainingConfig(BaseModel):
 
         # Always set do_train so LlamaFactory actually runs training
         result["do_train"] = True
+        # Enable loss plotting (generates trainer_log.jsonl entries and training_loss.png)
+        result["plot_loss"] = True
+        result["trust_remote_code"] = True
+        result["include_num_input_tokens_seen"] = True
 
         # Remove fields that are not LlamaFactory args
         # These fields exist in our config but aren't used by LlamaFactory

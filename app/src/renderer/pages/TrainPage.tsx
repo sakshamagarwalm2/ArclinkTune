@@ -168,7 +168,7 @@ export function TrainPage() {
     gradient_accumulation_steps: 8,
     lr_scheduler_type: 'cosine',
     max_grad_norm: 1.0,
-    logging_steps: 5,
+    logging_steps: 1,
     save_steps: 100,
     warmup_steps: 0,
     output_dir: `output/train_${Date.now()}`,
@@ -306,7 +306,7 @@ export function TrainPage() {
   // Fetch trainer_log.jsonl for loss chart
   const fetchTrainerLog = async (outputDir: string) => {
     try {
-      const response = await fetch(`/api/training/trainer-log/${outputDir}`)
+      const response = await fetch(`http://localhost:8000/api/training/trainer-log/${outputDir}`)
       if (response.ok) {
         const data = await response.json()
         if (data.entries && data.entries.length > 0) {
@@ -321,8 +321,13 @@ export function TrainPage() {
   // Poll trainer_log.jsonl while training is running
   useEffect(() => {
     if (isRunning && config.output_dir) {
-      // Initial fetch
-      fetchTrainerLog(config.output_dir)
+      // Clear old data for a fresh start
+      setTrainerLogData([])
+      
+      // Delay initial fetch to give time for the file to appear
+      const initialTimeout = setTimeout(() => {
+        fetchTrainerLog(config.output_dir)
+      }, 5000)
       
       // Poll every 3 seconds
       trainerLogIntervalRef.current = setInterval(() => {
@@ -330,6 +335,7 @@ export function TrainPage() {
       }, 3000)
       
       return () => {
+        clearTimeout(initialTimeout)
         if (trainerLogIntervalRef.current) {
           clearInterval(trainerLogIntervalRef.current)
           trainerLogIntervalRef.current = null
@@ -338,14 +344,19 @@ export function TrainPage() {
     }
   }, [isRunning, config.output_dir])
 
-  // Fetch trainer log on completion
+  // Fetch trainer log on completion - retry a few times to get final data
   useEffect(() => {
     if (isCompleted && config.output_dir) {
-      fetchTrainerLog(config.output_dir)
       if (trainerLogIntervalRef.current) {
         clearInterval(trainerLogIntervalRef.current)
         trainerLogIntervalRef.current = null
       }
+      // Fetch immediately and also after a short delay to ensure final data is written
+      fetchTrainerLog(config.output_dir)
+      const retryTimeout = setTimeout(() => {
+        fetchTrainerLog(config.output_dir)
+      }, 2000)
+      return () => clearTimeout(retryTimeout)
     }
   }, [isCompleted, config.output_dir])
 
@@ -1636,7 +1647,7 @@ export function TrainPage() {
                   {trainerLogData.length > 0 ? `${trainerLogData.length} data points` : 'Waiting for data...'}
                 </span>
               </div>
-              <LossChart data={trainerLogData} />
+              <LossChart data={trainerLogData} showEval={false} />
             </div>
           )}
 
@@ -1651,7 +1662,7 @@ export function TrainPage() {
                   {trainerLogData.length} data points
                 </span>
               </div>
-              <LossChart data={trainerLogData} />
+              <LossChart data={trainerLogData} showEval={false} />
             </div>
           )}
           <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto">

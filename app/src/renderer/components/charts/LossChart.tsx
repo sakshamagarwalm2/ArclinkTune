@@ -17,16 +17,21 @@ interface LossChartProps {
   showEval?: boolean
 }
 
-// Exponential moving average for smoothing
-function smoothArray(data: number[], weight: number = 0.6): number[] {
-  if (data.length === 0) return []
+// EMA smoothing matching LlamaFactory's TensorBoard-style implementation
+// Uses a sigmoid function to dynamically adjust the smoothing weight based on data length
+function smooth(scalars: number[]): number[] {
+  if (scalars.length === 0) return []
+
+  // Sigmoid-based weight calculation matching LlamaFactory's ploting.py
+  const weight = 1.8 * (1 / (1 + Math.exp(-0.05 * scalars.length)) - 0.5)
   
-  let last = data[0]
-  const smoothed: number[] = [last]
+  let last = scalars[0]
+  const smoothed: number[] = []
   
-  for (let i = 1; i < data.length; i++) {
-    last = last * weight + (1 - weight) * data[i]
-    smoothed.push(last)
+  for (const nextVal of scalars) {
+    const smoothedVal = last * weight + (1 - weight) * nextVal
+    smoothed.push(smoothedVal)
+    last = smoothedVal
   }
   
   return smoothed
@@ -36,32 +41,69 @@ export function LossChart({ data, title, showEval = true }: LossChartProps) {
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return []
     
-    // Extract loss values and compute smoothed values
-    const rawLoss: number[] = []
-    const rawEvalLoss: number[] = []
-    const steps: number[] = []
+    // Filter entries that have loss data (matching LlamaFactory's gen_loss_plot)
+    const trainEntries: { step: number; loss: number }[] = []
+    const evalEntries: { step: number; evalLoss: number }[] = []
     
     for (const entry of data) {
       if (entry.loss !== undefined && entry.loss !== null) {
-        rawLoss.push(entry.loss)
-        steps.push(entry.current_steps || steps.length + 1)
+        trainEntries.push({
+          step: entry.current_steps,
+          loss: entry.loss,
+        })
       }
       if (entry.eval_loss !== undefined && entry.eval_loss !== null) {
-        rawEvalLoss.push(entry.eval_loss)
+        evalEntries.push({
+          step: entry.current_steps,
+          evalLoss: entry.eval_loss,
+        })
       }
     }
     
-    const smoothedLoss = smoothArray(rawLoss, 0.6)
-    const smoothedEvalLoss = showEval ? smoothArray(rawEvalLoss, 0.6) : []
+    if (trainEntries.length === 0) return []
     
-    // Build chart data
-    return steps.map((step, i) => ({
-      step,
-      loss: rawLoss[i],
-      smoothedLoss: smoothedLoss[i],
-      eval_loss: rawEvalLoss[i] ?? null,
-      smoothedEvalLoss: smoothedEvalLoss[i] ?? null,
-    }))
+    // Compute smoothed values
+    const rawLoss = trainEntries.map(e => e.loss)
+    const smoothedLoss = smooth(rawLoss)
+    
+    // Build main chart data from training entries
+    const chartMap = new Map<number, any>()
+    
+    for (let i = 0; i < trainEntries.length; i++) {
+      const step = trainEntries[i].step
+      chartMap.set(step, {
+        step,
+        loss: trainEntries[i].loss,
+        smoothedLoss: smoothedLoss[i],
+        eval_loss: null,
+        smoothedEvalLoss: null,
+      })
+    }
+    
+    // Merge eval data
+    if (showEval && evalEntries.length > 0) {
+      const rawEvalLoss = evalEntries.map(e => e.evalLoss)
+      const smoothedEvalLoss = smooth(rawEvalLoss)
+      
+      for (let i = 0; i < evalEntries.length; i++) {
+        const step = evalEntries[i].step
+        if (chartMap.has(step)) {
+          chartMap.get(step)!.eval_loss = evalEntries[i].evalLoss
+          chartMap.get(step)!.smoothedEvalLoss = smoothedEvalLoss[i]
+        } else {
+          chartMap.set(step, {
+            step,
+            loss: null,
+            smoothedLoss: null,
+            eval_loss: evalEntries[i].evalLoss,
+            smoothedEvalLoss: smoothedEvalLoss[i],
+          })
+        }
+      }
+    }
+    
+    // Sort by step and return
+    return Array.from(chartMap.values()).sort((a, b) => a.step - b.step)
   }, [data, showEval])
   
   if (chartData.length === 0) {
@@ -71,6 +113,22 @@ export function LossChart({ data, title, showEval = true }: LossChartProps) {
       </div>
     )
   }
+  
+  // Calculate Y axis domain with padding
+  const allLossValues = chartData
+    .flatMap(d => [d.loss, d.smoothedLoss, d.eval_loss, d.smoothedEvalLoss])
+    .filter((v): v is number => v !== null && v !== undefined && !isNaN(v))
+  
+  const minVal = Math.min(...allLossValues)
+  const maxVal = Math.max(...allLossValues)
+  // For single points or very close values, create a reasonable Y range
+  const range = maxVal - minVal
+  const padding = range > 0 ? range * 0.1 : Math.max(minVal * 0.1, 0.1)
+  const yMin = Math.max(0, minVal - padding)
+  const yMax = maxVal + padding
+  
+  // Show dots when there are few data points so they're visible
+  const showDots = chartData.length <= 5
   
   return (
     <div className="w-full h-64">
@@ -88,6 +146,8 @@ export function LossChart({ data, title, showEval = true }: LossChartProps) {
             label={{ value: 'Loss', angle: -90, position: 'insideLeft' }}
             stroke="hsl(var(--muted-foreground))"
             fontSize={12}
+            domain={[yMin, yMax]}
+            tickFormatter={(v: number) => v.toFixed(2)}
           />
           <Tooltip 
             contentStyle={{ 
@@ -97,30 +157,33 @@ export function LossChart({ data, title, showEval = true }: LossChartProps) {
               fontSize: '12px'
             }}
             labelStyle={{ color: 'hsl(var(--foreground))' }}
+            formatter={(value: number) => value?.toFixed(4)}
           />
           <Legend 
             wrapperStyle={{ fontSize: '12px' }}
           />
-          {/* Raw loss (transparent) */}
+          {/* Raw loss (transparent) - matches LlamaFactory's alpha=0.4 */}
           <Line 
             type="monotone" 
             dataKey="loss" 
-            stroke="hsl(var(--primary))" 
-            strokeOpacity={0.3}
+            stroke="#1f77b4" 
+            strokeOpacity={0.4}
             strokeWidth={1}
-            dot={false}
-            name="Loss (raw)"
+            dot={showDots ? { r: 4, fill: '#1f77b4', strokeWidth: 0, fillOpacity: 0.6 } : false}
+            name="Loss (original)"
             isAnimationActive={false}
+            connectNulls={false}
           />
-          {/* Smoothed loss */}
+          {/* Smoothed loss - matches LlamaFactory's solid line */}
           <Line 
             type="monotone" 
             dataKey="smoothedLoss" 
-            stroke="hsl(var(--primary))" 
+            stroke="#1f77b4" 
             strokeWidth={2}
-            dot={false}
-            name="Loss"
+            dot={showDots ? { r: 5, fill: '#1f77b4', strokeWidth: 2, stroke: '#fff' } : false}
+            name="Loss (smoothed)"
             isAnimationActive={false}
+            connectNulls={false}
           />
           {/* Eval loss (if available) */}
           {showEval && (
@@ -128,21 +191,21 @@ export function LossChart({ data, title, showEval = true }: LossChartProps) {
               <Line 
                 type="monotone" 
                 dataKey="eval_loss" 
-                stroke="hsl(var(--chart-2))" 
-                strokeOpacity={0.3}
+                stroke="#ff7f0e" 
+                strokeOpacity={0.4}
                 strokeWidth={1}
-                dot={false}
-                name="Eval Loss (raw)"
+                dot={showDots ? { r: 4, fill: '#ff7f0e', strokeWidth: 0, fillOpacity: 0.6 } : false}
+                name="Eval Loss (original)"
                 isAnimationActive={false}
                 connectNulls={false}
               />
               <Line 
                 type="monotone" 
                 dataKey="smoothedEvalLoss" 
-                stroke="hsl(var(--chart-2))" 
+                stroke="#ff7f0e" 
                 strokeWidth={2}
-                dot={false}
-                name="Eval Loss"
+                dot={showDots ? { r: 5, fill: '#ff7f0e', strokeWidth: 2, stroke: '#fff' } : false}
+                name="Eval Loss (smoothed)"
                 isAnimationActive={false}
                 connectNulls={false}
               />

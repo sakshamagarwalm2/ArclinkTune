@@ -12,7 +12,7 @@ import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight, MessageSquare 
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { api } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
-import { LossChart } from '@/components/charts/LossChart'
+import { EvalMetricsChart } from '@/components/charts/EvalMetricsChart'
 import { cn } from '@/lib/utils'
 
 export function EvaluatePage() {
@@ -24,8 +24,8 @@ export function EvaluatePage() {
   const [runId, setRunId] = useState<string | null>(null)
   const [results, setResults] = useState<Record<string, number>>({})
   const [evalMetrics, setEvalMetrics] = useState<Record<string, any>>({})
-  const [evalHistory, setEvalHistory] = useState<any[]>([])
   const [isCompleted, setIsCompleted] = useState(false)
+  const [evalOutputDir, setEvalOutputDir] = useState('')
 
   useEffect(() => {
     if (lastTrainingResult) {
@@ -94,11 +94,16 @@ export function EvaluatePage() {
     if (!runId || !isRunning) return
     
     try {
-      const status = await api.evaluate.getStatus(runId)
+      const status = await api.evaluate.getStatus(runId) as any
       setProgress(status.progress)
       
       if (status.results) {
         setResults(status.results)
+      }
+      
+      // Track the output dir for results fetching
+      if (status.output_dir) {
+        setEvalOutputDir(status.output_dir)
       }
       
       const logsResponse = await api.evaluate.getLogs(runId)
@@ -114,16 +119,13 @@ export function EvaluatePage() {
           
           // Fetch detailed evaluation results
           try {
-            const outputDir = status.config?.output_dir || ''
-            if (outputDir) {
-              const response = await fetch(`/api/evaluate/results/${outputDir}`)
+              const evalDir = status.output_dir || evalOutputDir || ''
+              if (evalDir) {
+                const response = await fetch(`http://localhost:8000/api/evaluate/results/${evalDir}`)
               if (response.ok) {
                 const data = await response.json()
                 if (data.metrics) {
                   setEvalMetrics(data.metrics)
-                }
-                if (data.eval_history) {
-                  setEvalHistory(data.eval_history)
                 }
               }
             }
@@ -486,11 +488,11 @@ export function EvaluatePage() {
               </div>
             )}
             
-            {/* Evaluation loss chart */}
-            {evalHistory.length > 0 && (
+            {/* Evaluation metrics chart */}
+            {Object.keys(evalMetrics).length > 0 && (
               <div className="mt-4">
-                <h4 className="text-sm font-medium mb-2">Evaluation Loss</h4>
-                <LossChart data={evalHistory} showEval={true} />
+                <h4 className="text-sm font-medium mb-2">Metrics Chart</h4>
+                <EvalMetricsChart metrics={evalMetrics} />
               </div>
             )}
           </CardContent>
@@ -568,6 +570,22 @@ export function EvaluatePage() {
                 <span className="text-primary font-medium tabular-nums">{progress.toFixed(1)}%</span>
               </div>
               <Progress value={progress} className="h-2" variant="green" />
+            </div>
+          )}
+
+          {/* Evaluation Metrics Chart - shown after results are available */}
+          {(Object.keys(results).length > 0 || Object.keys(evalMetrics).length > 0) && (
+            <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <LineChart className="w-4 h-4 mr-2 text-neon-cyan" />
+                  <span className="text-sm font-medium">Evaluation Metrics</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {Object.keys({...results, ...evalMetrics}).length} metrics
+                </span>
+              </div>
+              <EvalMetricsChart metrics={{...results, ...evalMetrics}} />
             </div>
           )}
           <div className="min-h-[192px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto">

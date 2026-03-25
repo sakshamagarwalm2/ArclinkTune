@@ -100,6 +100,8 @@ class EvaluateService:
 
         # Logging
         eval_config["report_to"] = ["none"]
+        eval_config["plot_loss"] = True
+        eval_config["trust_remote_code"] = True
 
         return eval_config
 
