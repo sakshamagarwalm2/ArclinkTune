@@ -19,7 +19,7 @@ import { LossChart } from '@/components/charts/LossChart'
 import { 
   Play, Square, Save, FolderOpen, Eye, Settings, 
   Layers, Cpu, Zap, Brain, Rocket, Activity, Bot, LineChart, ArrowRight,
-  Info, Heart, Sparkles, Box, RefreshCw, Search, CheckCircle2, XCircle, Loader2
+  Info, Heart, Sparkles, Box, RefreshCw, Search, CheckCircle2, XCircle, Loader2, Download
 } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 
@@ -1609,6 +1609,28 @@ export function TrainPage() {
                     <Activity className="w-4 h-4 mr-1" /> <span className="sm:inline">Output Stats</span>
                   </Button>
                   <InfoTooltip content="View final training metrics and results." impact="Displays the outcome of the training run in detail." />
+                </div>
+              )}
+
+              {(isCompleted) && (
+                <div className="flex items-center gap-1 group">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 sm:flex-none border-primary/40 hover:bg-primary/10"
+                    onClick={() => navigate('/export', { 
+                      state: { 
+                        modelPath: config.model_name_or_path, 
+                        finetuningType: config.finetuning_type, 
+                        checkpointPath: config.output_dir, 
+                        template: config.template,
+                        outputDir: config.output_dir
+                      } 
+                    })}
+                  >
+                    <Download className="w-4 h-4 mr-1 text-primary" /> <span className="sm:inline">Export</span>
+                  </Button>
+                  <InfoTooltip content="Merge or quantize your trained model for deployment." impact="Navigates to the Export page with training details auto-filled." />
                 </div>
               )}
 

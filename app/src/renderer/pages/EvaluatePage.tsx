@@ -459,11 +459,21 @@ export function EvaluatePage() {
             </div>
 
             <div className="flex items-center gap-1 group mt-2">
-              <Link to="/export" className="flex-1">
-                <Button variant="outline" className="w-full gap-2">
-                  <Download className="w-4 h-4" /> Export Results <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
+              <Button 
+                variant="outline" 
+                className="w-full gap-2"
+                onClick={() => navigate('/export', { 
+                  state: { 
+                    modelPath, 
+                    finetuningType, 
+                    checkpointPath, 
+                    template,
+                    outputDir: evalOutputDir || outputDir
+                  } 
+                })}
+              >
+                <Download className="w-4 h-4" /> Export Results <ArrowRight className="w-4 h-4" />
+              </Button>
               <InfoTooltip content="Proceed to the Export module to save or merge your model results." impact="Connects the evaluation workflow to final deployment steps." />
             </div>
           </CardContent>
@@ -757,9 +767,34 @@ export function EvaluatePage() {
             )}
           </ScrollArea>
           
-          <DialogFooter className="mt-6">
+          <DialogFooter className="mt-6 gap-2">
             <Button variant="outline" onClick={() => setShowOutputStatsModal(false)}>Close</Button>
-            <Button variant="default" onClick={() => navigate('/chat')}>
+            <Button 
+              variant="outline" 
+              className="border-primary/40 hover:bg-primary/10"
+              onClick={() => {
+                setShowOutputStatsModal(false);
+                navigate('/export', { 
+                  state: { 
+                    modelPath, 
+                    finetuningType, 
+                    checkpointPath, 
+                    template,
+                    outputDir: evalOutputDir || outputDir
+                  } 
+                });
+              }}
+            >
+              <Download className="w-4 h-4 mr-2 text-primary" /> Export Result
+            </Button>
+            <Button variant="default" onClick={() => navigate('/chat', {
+              state: {
+                modelPath,
+                checkpointPath,
+                template,
+                finetuningType
+              }
+            })}>
               <MessageSquare className="w-4 h-4 mr-2" /> Go to Chat
             </Button>
           </DialogFooter>

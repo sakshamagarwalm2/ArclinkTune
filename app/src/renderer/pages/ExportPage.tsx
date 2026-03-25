@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { Link, useLocation } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,10 +9,11 @@ import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Download, Bot, ArrowRight, RefreshCw, Square } from 'lucide-react'
+import { Download, Bot, ArrowRight, RefreshCw, Square, FolderOpen, Search, Eye, Rocket, CheckCircle2, XCircle } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { api, Model } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
+import { DatasetBrowser } from '@/components/DatasetBrowser'
 
 import { cn } from '@/lib/utils'
 
@@ -24,6 +25,8 @@ const EXPORT_DEVICES = [
 
 export function ExportPage() {
   const { selectedModel, setSelectedModel } = useApp()
+  const location = useLocation()
+  const queryClient = useQueryClient()
   
   const [isExporting, setIsExporting] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -34,6 +37,7 @@ export function ExportPage() {
   const [modelPath, setModelPath] = useState('')
   const [finetuningType, setFinetuningType] = useState('lora')
   const [checkpointPath, setCheckpointPath] = useState('')
+  const [template, setTemplate] = useState('default')
   
   const [exportDir, setExportDir] = useState('')
   const [exportSize, setExportSize] = useState(5)
@@ -46,6 +50,7 @@ export function ExportPage() {
   const [hubPrivateRepo, setHubPrivateRepo] = useState(false)
   const [extraArgs, setExtraArgs] = useState('')
   const [commandPreview, setCommandPreview] = useState('')
+  const [showBrowser, setShowBrowser] = useState(false)
 
   const { data: models = [], isLoading: loadingModels } = useQuery<Model[]>({
     queryKey: ['models', 'export'],
@@ -54,15 +59,27 @@ export function ExportPage() {
   })
 
   useEffect(() => {
-    if (selectedModel && selectedModel.path) {
+    if (location.state) {
+      const state = location.state as any
+      if (state.modelPath) setModelPath(state.modelPath)
+      if (state.finetuningType) setFinetuningType(state.finetuningType)
+      if (state.checkpointPath) setCheckpointPath(state.checkpointPath)
+      if (state.template) setTemplate(state.template)
+      if (state.outputDir && !exportDir) {
+        // If coming from training, suggest an export dir
+        setExportDir(`${state.outputDir}_exported`)
+      }
+    } else if (selectedModel && selectedModel.path) {
       setModelPath(selectedModel.path)
+      if (selectedModel.template) setTemplate(selectedModel.template)
     }
-  }, [selectedModel])
+  }, [location.state, selectedModel])
 
   const handleModelSelect = (path: string) => {
     const model = models.find(m => m.path === path)
     if (model) {
       setModelPath(path)
+      setTemplate(model.template || 'default')
       setSelectedModel({
         name: model.name,
         path: model.path,
@@ -76,7 +93,7 @@ export function ExportPage() {
     adapter_name_or_path: checkpointPath || undefined,
     export_dir: exportDir,
     finetuning_type: finetuningType,
-    template: selectedModel?.template || 'default',
+    template: template,
     export_size: exportSize,
     export_quant_bit: exportQuantBit !== 'none' ? parseInt(exportQuantBit) : undefined,
     export_quantization_dataset: exportQuantBit !== 'none' ? exportQuantDataset : undefined,
@@ -272,15 +289,26 @@ export function ExportPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <div className="flex items-center">
-                <label className="text-sm font-medium">Export Directory</label>
-                <InfoTooltip content="Destination folder for the final exported model." impact="Creates a new directory with merged weights and configuration." />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <label className="text-sm font-medium">Export Directory</label>
+                  <InfoTooltip content="Destination folder for the final exported model." impact="Creates a new directory with merged weights and configuration." />
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 text-[10px] gap-1 hover:text-primary"
+                  onClick={() => setShowBrowser(true)}
+                >
+                  <Search className="w-3 h-3" /> Browse
+                </Button>
               </div>
               <Input 
                 value={exportDir} 
                 onChange={(e) => setExportDir(e.target.value)}
                 placeholder="exported_model"
               />
+              <p className="text-[10px] text-muted-foreground">Select or enter destination path</p>
             </div>
 
             <div className="space-y-2">
@@ -446,23 +474,45 @@ export function ExportPage() {
                 <Square className="w-4 h-4 mr-2" /> Stop Export
               </Button>
             ) : (
-              <Button onClick={handleExport} className="w-full sm:w-auto" disabled={!modelPath || !exportDir}>
-                <Download className="w-4 h-4 mr-2" /> Start Export
+              <Button 
+                onClick={handleExport} 
+                className="w-full sm:w-auto" 
+                disabled={!modelPath || !exportDir}
+                variant={progress === 100 ? "success" : "default"}
+              >
+                <Download className="w-4 h-4 mr-2" /> {progress === 100 ? 'Restart Export' : 'Start Export'}
               </Button>
             )}
           </div>
 
-          <div className="min-h-[128px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[200px] overflow-y-auto">
+          <div className="min-h-[128px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[200px] overflow-y-auto shadow-inner">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Export logs will appear here...</p>
             ) : (
               logs.map((log, i) => (
-                <p key={i}>{log}</p>
+                <p key={i} className="whitespace-pre-wrap">{log}</p>
               ))
             )}
           </div>
         </CardContent>
       </Card>
+
+      {showBrowser && (
+        <DatasetBrowser
+          onSelect={(name, dir) => {
+            // Use dir for the export directory path
+            if (dir) {
+              // Combine dir and name if name is a folder, or just use dir
+              setExportDir(dir)
+            } else if (name) {
+              setExportDir(name)
+            }
+            setShowBrowser(false)
+          }}
+          onClose={() => setShowBrowser(false)}
+        />
+      )}
     </div>
   )
 }
+
