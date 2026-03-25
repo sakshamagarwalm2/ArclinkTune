@@ -13,7 +13,7 @@ import { Download, Bot, ArrowRight, RefreshCw, Square, FolderOpen, Search, Eye, 
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { api, Model } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
-import { DatasetBrowser } from '@/components/DatasetBrowser'
+import { FolderBrowser } from '@/components/FolderBrowser'
 
 import { cn } from '@/lib/utils'
 
@@ -51,6 +51,7 @@ export function ExportPage() {
   const [extraArgs, setExtraArgs] = useState('')
   const [commandPreview, setCommandPreview] = useState('')
   const [showBrowser, setShowBrowser] = useState(false)
+  const [browserTarget, setBrowserTarget] = useState<'export' | 'checkpoint'>('export')
 
   const { data: models = [], isLoading: loadingModels } = useQuery<Model[]>({
     queryKey: ['models', 'export'],
@@ -251,9 +252,22 @@ export function ExportPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center">
-                <label className="text-sm font-medium">Checkpoint Path</label>
-                <InfoTooltip content="The adapter checkpoint to merge into the base model." impact="Fuses your training results into a single, deployable model file." />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <label className="text-sm font-medium">Checkpoint Path</label>
+                  <InfoTooltip content="The adapter checkpoint to merge into the base model." impact="Fuses your training results into a single, deployable model file." />
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 text-[10px] gap-1 hover:text-primary"
+                  onClick={() => {
+                    setBrowserTarget('checkpoint')
+                    setShowBrowser(true)
+                  }}
+                >
+                  <Search className="w-3 h-3" /> Browse
+                </Button>
               </div>
               <Input 
                 value={checkpointPath} 
@@ -298,7 +312,10 @@ export function ExportPage() {
                   variant="ghost" 
                   size="sm" 
                   className="h-7 text-[10px] gap-1 hover:text-primary"
-                  onClick={() => setShowBrowser(true)}
+                  onClick={() => {
+                    setBrowserTarget('export')
+                    setShowBrowser(true)
+                  }}
                 >
                   <Search className="w-3 h-3" /> Browse
                 </Button>
@@ -498,14 +515,13 @@ export function ExportPage() {
       </Card>
 
       {showBrowser && (
-        <DatasetBrowser
-          onSelect={(name, dir) => {
-            // Use dir for the export directory path
-            if (dir) {
-              // Combine dir and name if name is a folder, or just use dir
-              setExportDir(dir)
-            } else if (name) {
-              setExportDir(name)
+        <FolderBrowser
+          title={browserTarget === 'export' ? "Select Export Directory" : "Select Checkpoint Folder"}
+          onSelect={(path) => {
+            if (browserTarget === 'export') {
+              setExportDir(path)
+            } else {
+              setCheckpointPath(path)
             }
             setShowBrowser(false)
           }}
@@ -515,4 +531,5 @@ export function ExportPage() {
     </div>
   )
 }
+
 

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { 
   FolderOpen, FileText, ArrowLeft, ChevronRight, ChevronDown, ChevronUp, X, Loader2, 
   AlertCircle, Search, Download, Database, Globe, File, Upload, Sparkles,
-  Info, AlertTriangle
+  Info, AlertTriangle, XCircle
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -246,6 +246,7 @@ function HuggingFaceTab({ onSelect }: { onSelect: (name: string, dir: string) =>
   const [formatInfo, setFormatInfo] = useState<any>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [configuring, setConfiguring] = useState(false)
+  const [configError, setConfigError] = useState<string | null>(null)
 
   const searchDatasets = useCallback(async (query: string) => {
     setLoading(true)
@@ -272,6 +273,7 @@ function HuggingFaceTab({ onSelect }: { onSelect: (name: string, dir: string) =>
     setSelectedDataset(dataset)
     setLoadingPreview(true)
     setFormatInfo(null)
+    setConfigError(null)
     
     try {
       const res = await fetch(`${API_BASE}/hf/validate-format?repo_id=${dataset.id}`)
@@ -286,18 +288,29 @@ function HuggingFaceTab({ onSelect }: { onSelect: (name: string, dir: string) =>
   const configureDataset = async () => {
     if (!selectedDataset) return
     setConfiguring(true)
+    setConfigError(null)
     
     try {
       const res = await fetch(`${API_BASE}/hf/${selectedDataset.id}/download`, {
-        method: 'POST'
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          formatting: formatInfo?.suggested_format || 'alpaca',
+          columns: formatInfo?.suggested_columns || {}
+        })
       })
       const data = await res.json()
       
       if (data.success) {
         onSelect(data.dataset_name, data.data_dir || 'data')
+      } else {
+        setConfigError(data.detail || data.error || 'Failed to configure dataset')
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Configure failed:', e)
+      setConfigError(e.message || 'Network error occurred. Please try again.')
     }
     setConfiguring(false)
   }
@@ -428,6 +441,16 @@ function HuggingFaceTab({ onSelect }: { onSelect: (name: string, dir: string) =>
                 )}
               </div>
             ) : null}
+
+            {configError && (
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2 text-destructive text-sm animate-in fade-in slide-in-from-top-1">
+                <XCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-semibold">Setup Failed</p>
+                  <p className="text-xs opacity-90">{configError}</p>
+                </div>
+              </div>
+            )}
 
             <Button 
               className="w-full mt-4" 

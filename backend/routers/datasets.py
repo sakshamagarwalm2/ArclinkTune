@@ -78,11 +78,27 @@ class ConfigureRequest(BaseModel):
     tags: Optional[Dict[str, str]] = None
 
 
+class DownloadRequest(BaseModel):
+    formatting: str = "alpaca"
+    columns: Dict[str, str] = {}
+    splits: Optional[str] = "train"
+    max_size: Optional[int] = None
+
+
 class ConfigureResponse(BaseModel):
     success: bool
-    dataset_name: str
     message: str
-    data_dir: str = ""
+    dataset_name: str
+    config_path: str
+    data_dir: str
+
+
+class PreviewResponse(BaseModel):
+    name: str
+    file_name: str
+    formatting: str
+    columns: Dict[str, str]
+    tags: Dict[str, str]
 
 
 class DatasetInfoEntry(BaseModel):
@@ -375,6 +391,56 @@ async def browse_files(request: BrowseRequest):
     )
 
 
+@router.post("/browse-directory", response_model=BrowseResponse)
+async def browse_directories(request: BrowseRequest):
+    """Browse only directories on the server filesystem, allowing any path."""
+    data_dir = _get_data_dir()
+    
+    # If no path, start with data_dir
+    if not request.path:
+        target = data_dir
+    else:
+        target = Path(request.path)
+        
+    # If path doesn't exist, fallback to data_dir
+    if not target.exists():
+        target = data_dir
+        
+    # Ensure it's a directory
+    if not target.is_dir():
+        target = target.parent
+        
+    target = target.resolve()
+    
+    entries: List[FileEntry] = []
+    
+    try:
+        # List all directories, ignore hidden ones
+        items = sorted([p for p in target.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
+    except PermissionError:
+        items = []
+        
+    for item in items:
+        if item.name.startswith(".") or item.name == "__pycache__":
+            continue
+            
+        entry = FileEntry(
+            name=item.name,
+            path=str(item),
+            is_directory=True,
+            is_supported=True
+        )
+        entries.append(entry)
+        
+    parent = str(target.parent) if target.parent != target else None
+    
+    return BrowseResponse(
+        current_path=str(target),
+        parent_path=parent,
+        entries=entries,
+        data_dir=str(data_dir.resolve())
+    )
+
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_dataset(request: AnalyzeRequest):
     """Analyze a dataset file to detect its format and columns."""
@@ -589,7 +655,75 @@ async def search_hf_datasets(query: str = "", limit: int = 20):
         raise HTTPException(status_code=500, detail=f"HF search failed: {str(e)}")
 
 
-@router.get("/hf/{repo_id}")
+@router.get("/hf/validate-format")
+async def validate_hf_format(repo_id: str, split: str = "train"):
+    """Analyze the format of a HuggingFace dataset and suggest column mappings."""
+    try:
+        from datasets import load_dataset
+
+        try:
+            ds = load_dataset(
+                repo_id, split=split, streaming=True, trust_remote_code=True
+            )
+            # Get first sample
+            sample = next(iter(ds))
+            columns = list(sample.keys())
+
+            # Detect format and columns
+            format_suggestion = "alpaca"
+            col_map = {}
+
+            if "conversations" in columns:
+                format_suggestion = "sharegpt"
+                col_map = {"messages": "conversations"}
+            elif "messages" in columns:
+                format_suggestion = "sharegpt"
+                col_map = {"messages": "messages"}
+            else:
+                format_suggestion = "alpaca"
+                # Map prompt
+                if "instruction" in columns:
+                    col_map["prompt"] = "instruction"
+                elif "prompt" in columns:
+                    col_map["prompt"] = "prompt"
+                elif "query" in columns:
+                    col_map["prompt"] = "query"
+                elif "question" in columns:
+                    col_map["prompt"] = "question"
+
+                # Map response
+                if "output" in columns:
+                    col_map["response"] = "output"
+                elif "response" in columns:
+                    col_map["response"] = "response"
+                elif "answer" in columns:
+                    col_map["response"] = "answer"
+                elif "solution" in columns:
+                    col_map["response"] = "solution"
+
+                # Map input/query
+                if "input" in columns:
+                    col_map["query"] = "input"
+
+            return {
+                "columns": columns,
+                "suggested_format": format_suggestion,
+                "suggested_columns": col_map,
+                "sample": {k: str(v)[:100] for k, v in list(sample.items())[:5]},
+            }
+        except Exception as e:
+            raise HTTPException(
+                status_code=400, detail=f"Failed to load dataset info: {str(e)}"
+            )
+    except ImportError:
+        raise HTTPException(status_code=500, detail="datasets library not installed")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Format validation failed: {str(e)}"
+        )
+
+
+@router.get("/hf/{repo_id:path}")
 async def get_hf_dataset_info(repo_id: str):
     """Get detailed info about a HuggingFace dataset."""
     try:
@@ -632,7 +766,7 @@ async def get_hf_dataset_info(repo_id: str):
         )
 
 
-@router.get("/hf/{repo_id}/preview")
+@router.get("/hf/{repo_id:path}/preview")
 async def preview_hf_dataset(repo_id: str, split: str = "train", rows: int = 5):
     """Preview samples from a HuggingFace dataset."""
     try:
@@ -672,121 +806,51 @@ async def preview_hf_dataset(repo_id: str, split: str = "train", rows: int = 5):
         raise HTTPException(status_code=500, detail=f"Preview failed: {str(e)}")
 
 
-@router.post("/hf/{repo_id}/download")
-async def download_hf_dataset(
-    repo_id: str, splits: Optional[str] = None, max_size: Optional[int] = None
-):
-    """Download a HuggingFace dataset to local data folder."""
-    import tempfile
-    import shutil
-
+@router.post("/hf/{repo_id:path}/download", response_model=ConfigureResponse)
+async def download_hf_dataset(repo_id: str, request: DownloadRequest):
+    """Register a HuggingFace dataset in local dataset_info.json."""
     try:
-        from datasets import load_dataset
-        import json
-
         data_dir = _get_data_dir()
         target_dir = data_dir / repo_id.replace("/", "_")
         target_dir.mkdir(parents=True, exist_ok=True)
-
-        split_list = splits.split(",") if splits else None
 
         config_path = data_dir / DATA_CONFIG
 
         info = _load_dataset_info()
 
+        # Sanitize name for dataset_info.json key
+        dataset_name = repo_id.replace("/", "_")
+
         dataset_entry = {
             "hf_hub_url": repo_id,
-            "formatting": "alpaca",
-            "description": f"Downloaded from HuggingFace: {repo_id}",
+            "formatting": request.formatting,
+            "description": f"HuggingFace dataset: {repo_id}",
         }
 
-        if split_list:
-            dataset_entry["split"] = ",".join(split_list)
+        # Add column mappings if provided
+        if request.columns:
+            dataset_entry["columns"] = request.columns
 
-        info[repo_id.replace("/", "_")] = dataset_entry
+        if request.splits:
+            dataset_entry["split"] = request.splits
+
+        info[dataset_name] = dataset_entry
         _save_dataset_info(info)
 
-        return {
-            "success": True,
-            "message": f"Dataset '{repo_id}' configured. It will be downloaded when training starts.",
-            "dataset_name": repo_id.replace("/", "_"),
-            "config_path": str(config_path),
-            "data_dir": str(data_dir),
-        }
-    except ImportError as e:
-        raise HTTPException(status_code=500, detail=f"Missing library: {str(e)}")
+        # Create a placeholder readme to avoid empty folder confusion
+        with open(target_dir / "README.md", "w", encoding="utf-8") as f:
+            f.write(f"# {repo_id}\n\nThis dataset is configured via HuggingFace Hub URL.\n")
+            f.write(f"The actual data will be downloaded and cached by LlamaFactory during training.\n")
+
+        return ConfigureResponse(
+            success=True,
+            message=f"Dataset '{repo_id}' configured with {request.formatting} format. It will be downloaded automatically during training.",
+            dataset_name=dataset_name,
+            config_path=str(config_path.resolve()),
+            data_dir=str(data_dir.resolve()),
+        )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
-
-
-@router.post("/hf/validate-format")
-async def validate_hf_format(repo_id: str, split: str = "train"):
-    """Analyze the format of a HuggingFace dataset and suggest column mappings."""
-    try:
-        from datasets import load_dataset
-
-        try:
-            ds = load_dataset(
-                repo_id, split=split, streaming=True, trust_remote_code=True
-            )
-
-            samples = []
-            for i, row in enumerate(ds):
-                if i >= 10:
-                    break
-                samples.append(row)
-
-            if not samples:
-                return {
-                    "format": "unknown",
-                    "columns": {},
-                    "suggestion": "Dataset appears to be empty",
-                }
-
-            first = samples[0]
-
-            detected_format = "unknown"
-            columns = {}
-
-            if "conversations" in first:
-                detected_format = "sharegpt"
-                columns = {"messages": "conversations"}
-            elif "messages" in first:
-                detected_format = "sharegpt"
-                columns = {"messages": "messages"}
-            elif "instruction" in first and "output" in first:
-                detected_format = "alpaca"
-                columns = {"prompt": "instruction", "response": "output"}
-                if "input" in first:
-                    columns["query"] = "input"
-            elif "question" in first and "answer" in first:
-                detected_format = "alpaca"
-                columns = {"prompt": "question", "response": "answer"}
-
-            if detected_format == "unknown":
-                text_cols = [
-                    k for k, v in first.items() if isinstance(v, str) and len(v) > 10
-                ]
-                if len(text_cols) >= 2:
-                    detected_format = "alpaca"
-                    columns = {"prompt": text_cols[0], "response": text_cols[-1]}
-
-            return {
-                "format": detected_format,
-                "columns": columns,
-                "available_columns": list(first.keys()),
-                "suggestion": f"Detected {detected_format} format with columns: {', '.join(columns.values())}"
-                if columns
-                else "Could not auto-detect format. Please map columns manually.",
-            }
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Failed to analyze: {str(e)}")
-    except ImportError:
-        raise HTTPException(status_code=500, detail="datasets library not installed")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Configuration failed: {str(e)}")
 
 
 # ─── Local File Validation ─────────────────────────────────────────────────────

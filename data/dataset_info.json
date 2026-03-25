@@ -11,5 +11,15 @@
       "user_tag": "human",
       "assistant_tag": "gpt"
     }
+  },
+  "m-a-p_CodeFeedback-Filtered-Instruction": {
+    "hf_hub_url": "m-a-p/CodeFeedback-Filtered-Instruction",
+    "formatting": "alpaca",
+    "description": "HuggingFace dataset: m-a-p/CodeFeedback-Filtered-Instruction",
+    "columns": {
+      "prompt": "query",
+      "response": "answer"
+    },
+    "split": "train"
   }
 }
