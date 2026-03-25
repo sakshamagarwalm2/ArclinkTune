@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -82,6 +82,7 @@ interface TrainingConfig {
   max_grad_norm: number
   logging_steps: number
   save_steps: number
+  target_checkpoints: number | null
   warmup_steps: number
   output_dir: string
   bf16: boolean
@@ -145,11 +146,12 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function TrainPage() {
   const navigate = useNavigate()
-  const { status, progress, startTraining, stopTraining, clearTraining, lossHistory, currentStep, totalSteps, runId, logs } = useTraining()
+  const { status, progress, startTraining, stopTraining, clearTraining, lossHistory, currentStep, totalSteps, numExamples, runId, logs } = useTraining()
   const { selectedModel, setSelectedModel, templates, setTemplates, setLastTrainingResult } = useApp()
   const isRunning = status === 'running'
   const isCompleted = status === 'completed'
   const isFailed = status === 'failed'
+  const isStopped = status === 'stopped'
   
   const prevSelectedModelRef = useRef<string>('')
   const [previewCommand, setPreviewCommand] = useState('')
@@ -161,6 +163,10 @@ export function TrainPage() {
   const [initialMountDone, setInitialMountDone] = useState(false)
   const [trainerLogData, setTrainerLogData] = useState<any[]>([])
   const trainerLogIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  
+  const [checkpoints, setCheckpoints] = useState<any[]>([])
+  const [isLoadingCheckpoints, setIsLoadingCheckpoints] = useState(false)
+  const [trainingInfo, setTrainingInfo] = useState<any>(null)
   
   const [activeSubTab, setActiveSubTab] = useState<'freeze' | 'rlhf' | 'galore' | 'apollo' | 'badam'>('freeze')
   const [config, setConfig] = useState<TrainingConfig>({
@@ -179,6 +185,7 @@ export function TrainPage() {
     max_grad_norm: 1.0,
     logging_steps: 1,
     save_steps: 100,
+    target_checkpoints: 100,
     warmup_steps: 0,
     output_dir: `output/train_${Date.now()}`,
     bf16: true,
@@ -298,8 +305,81 @@ export function TrainPage() {
     }
   }, [selectedModel?.path, selectedModel?.template])
 
+  // Fetch training info (dataset size, steps, checkpoint schedule)
+  const fetchTrainingInfo = useCallback(() => {
+    if (config.dataset) {
+      console.log('[TrainPage] Fetching training info for dataset:', config.dataset, 'config:', {
+        save_steps: config.save_steps,
+        target_checkpoints: config.target_checkpoints,
+        per_device_train_batch_size: config.per_device_train_batch_size,
+        gradient_accumulation_steps: config.gradient_accumulation_steps,
+        num_train_epochs: config.num_train_epochs,
+        max_samples: config.max_samples
+      })
+      api.training.getInfo(config as any)
+        .then(info => {
+          console.log('[TrainPage] Training info received:', info)
+          console.log('[TrainPage] first_checkpoint_step:', info.first_checkpoint_step, 'checkpoint_count:', info.checkpoint_count, 'save_steps:', info.save_steps)
+          setTrainingInfo(info)
+        })
+        .catch(err => {
+          console.error('[TrainPage] Training info error:', err)
+          setTrainingInfo(null)
+        })
+    }
+  }, [config.dataset, config.max_samples, config.per_device_train_batch_size, config.gradient_accumulation_steps, config.num_train_epochs, config.save_steps, config.target_checkpoints])
+
   useEffect(() => {
-    if (isCompleted && config.output_dir) {
+    fetchTrainingInfo()
+  }, [fetchTrainingInfo])
+
+  // Re-fetch training info after training completes/stops (dataset should be downloaded by then)
+  useEffect(() => {
+    if ((isCompleted || isStopped || isFailed) && config.dataset) {
+      setTimeout(() => {
+        console.log('[TrainPage] Re-fetching training info after training...')
+        fetchTrainingInfo()
+      }, 2000)
+    }
+  }, [isCompleted, isStopped, isFailed])
+
+  // Derive actual training info, always from trainingInfo (with live overrides when running)
+  const actualTrainingInfo = (() => {
+    if (!trainingInfo) return null
+
+    // Use live values when available (reported by LlamaFactory after loading the real dataset)
+    const liveTotalSteps = (isRunning || isCompleted || isStopped) && totalSteps > 0 ? totalSteps : trainingInfo.total_steps
+    const liveEffectiveSamples = (isRunning || isCompleted || isStopped) && numExamples > 0 ? numExamples : trainingInfo.effective_samples
+
+    // Dynamically recompute checkpoint schedule whenever totalSteps changes
+    const targetCkpts = config.target_checkpoints || 0
+    let dynamicSaveSteps = trainingInfo.save_steps
+    if (targetCkpts > 0 && liveTotalSteps > 0) {
+      dynamicSaveSteps = Math.max(1, Math.floor(liveTotalSteps / targetCkpts))
+    }
+
+    const dynamicSchedule: number[] = []
+    if (liveTotalSteps > 0 && dynamicSaveSteps > 0) {
+      for (let step = dynamicSaveSteps; step <= liveTotalSteps; step += dynamicSaveSteps) {
+        dynamicSchedule.push(step)
+      }
+    }
+
+    return {
+      ...trainingInfo,
+      effective_samples: liveEffectiveSamples,
+      dataset_samples: (isRunning || isCompleted || isStopped) && numExamples > 0 ? numExamples : trainingInfo.dataset_samples,
+      total_steps: liveTotalSteps,
+      // Always recomputed from live total steps
+      save_steps: dynamicSaveSteps,
+      first_checkpoint_step: liveTotalSteps > 0 ? dynamicSaveSteps : 0,
+      checkpoint_count: dynamicSchedule.length,
+      checkpoint_schedule: dynamicSchedule,
+    }
+  })()
+
+  useEffect(() => {
+    if ((isCompleted || isStopped) && config.output_dir) {
       // Use output_dir directly since adapter files are saved there
       const checkpointPath = config.output_dir
       setLastTrainingResult({
@@ -313,7 +393,7 @@ export function TrainPage() {
         timestamp: Date.now(),
       })
     }
-  }, [isCompleted, config.output_dir])
+  }, [isCompleted, isStopped, config.output_dir])
 
   // Fetch trainer_log.jsonl for loss chart
   const fetchTrainerLog = async (outputDir: string) => {
@@ -330,7 +410,34 @@ export function TrainPage() {
     }
   }
 
-  // Poll trainer_log.jsonl while training is running
+  // Fetch checkpoints for display
+  const fetchCheckpoints = async (outputDir: string) => {
+    setIsLoadingCheckpoints(true)
+    try {
+      const response = await fetch(`http://localhost:8000/api/training/checkpoints/${outputDir}`)
+      if (response.ok) {
+        const data = await response.json()
+        setCheckpoints(data.checkpoints || [])
+      }
+    } catch (e) {
+      console.error('Failed to fetch checkpoints:', e)
+    } finally {
+      setIsLoadingCheckpoints(false)
+    }
+  }
+
+  // Poll checkpoints while training is running (to show when new ones are saved)
+  useEffect(() => {
+    if ((isRunning || isCompleted || isStopped) && config.output_dir) {
+      fetchCheckpoints(config.output_dir)
+      
+      const checkpointPollInterval = setInterval(() => {
+        fetchCheckpoints(config.output_dir)
+      }, 10000) // Poll every 10 seconds
+      
+      return () => clearInterval(checkpointPollInterval)
+    }
+  }, [isRunning, isCompleted, isStopped, config.output_dir])
   useEffect(() => {
     if (isRunning && config.output_dir) {
       // Clear old data for a fresh start
@@ -358,7 +465,7 @@ export function TrainPage() {
 
   // Fetch trainer log on completion - retry a few times to get final data
   useEffect(() => {
-    if (isCompleted && config.output_dir) {
+    if ((isCompleted || isStopped) && config.output_dir) {
       if (trainerLogIntervalRef.current) {
         clearInterval(trainerLogIntervalRef.current)
         trainerLogIntervalRef.current = null
@@ -370,7 +477,7 @@ export function TrainPage() {
       }, 2000)
       return () => clearTimeout(retryTimeout)
     }
-  }, [isCompleted, config.output_dir])
+  }, [isCompleted, isStopped, config.output_dir])
 
   const handleModelSelect = (modelPath: string) => {
     const model = models.find(m => m.path === modelPath)
@@ -510,12 +617,17 @@ export function TrainPage() {
               <CheckCircle2 className="w-3 h-3 mr-1" /> Completed
             </Badge>
           )}
+          {isStopped && (
+            <Badge variant="default" className="bg-neon-amber text-white whitespace-nowrap">
+              <Square className="w-3 h-3 mr-1" /> Stopped
+            </Badge>
+          )}
           {isFailed && (
             <Badge variant="destructive" className="whitespace-nowrap">
               <XCircle className="w-3 h-3 mr-1" /> Failed
             </Badge>
           )}
-          {!isRunning && !isCompleted && !isFailed && (
+          {!isRunning && !isCompleted && !isFailed && !isStopped && (
             <Badge variant="secondary" className="whitespace-nowrap">
               Ready
             </Badge>
@@ -625,9 +737,26 @@ export function TrainPage() {
                     </div>
                     <Input 
                       type="number"
-                      value={config.max_samples} 
-                      onChange={(e) => updateConfig('max_samples', parseInt(e.target.value) || 0)}
+                      value={config.max_samples || ''} 
+                      onChange={(e) => updateConfig('max_samples', parseInt(e.target.value) || null)}
+                      placeholder="All samples"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Target Checkpoints</label>
+                      <InfoTooltip content="Number of checkpoints to save during training. Set to 100 by default." impact="Overrides Save Steps to create the specified number of checkpoints evenly spaced." />
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Slider 
+                        value={[config.target_checkpoints || 100]} 
+                        min={10} max={500} step={10}
+                        onValueChange={([v]) => updateConfig('target_checkpoints', v)}
+                        className="flex-1"
+                      />
+                      <span className="text-sm font-medium w-12 text-center">{config.target_checkpoints || 100}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1576,13 +1705,41 @@ export function TrainPage() {
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <label className="text-sm font-medium">Save Steps: <span className="text-primary tabular-nums">{config.save_steps}</span></label>
-                      <InfoTooltip content="Interval between saving model checkpoints to disk." impact="Crucial for resuming training if the process is interrupted." />
+                      <InfoTooltip content="Interval between saving model checkpoints to disk. Leave empty to set Target Checkpoints instead." impact="Crucial for resuming training if the process is interrupted." />
                     </div>
                     <Slider 
                       value={[config.save_steps]} 
                       min={10} max={1000} step={10}
                       onValueChange={([v]) => updateConfig('save_steps', v)}
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <label className="text-sm font-medium">Target Checkpoints: <span className="text-primary tabular-nums">{config.target_checkpoints || 'Auto'}</span></label>
+                      <InfoTooltip content="Set the number of checkpoints to save. Leave empty to use Save Steps instead." impact="Overrides Save Steps to create the specified number of checkpoints." />
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <Slider 
+                        value={[config.target_checkpoints || 10]} 
+                        min={10} max={500} step={10}
+                        onValueChange={([v]) => updateConfig('target_checkpoints', v)}
+                        className="flex-1"
+                      />
+                      <Button 
+                        variant={config.target_checkpoints ? "default" : "outline"} 
+                        size="sm"
+                        onClick={() => updateConfig('target_checkpoints', config.target_checkpoints ? null : 10)}
+                        className="px-2 h-8"
+                      >
+                        {config.target_checkpoints ? 'On' : 'Off'}
+                      </Button>
+                    </div>
+                    {config.target_checkpoints && actualTrainingInfo && actualTrainingInfo.total_steps > 0 && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Auto-save every {actualTrainingInfo.save_steps} steps to get ~{config.target_checkpoints} checkpoints
+                      </p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1606,7 +1763,7 @@ export function TrainPage() {
                 <InfoTooltip content="Shows the full configuration and command that will be executed." impact="Helps verify all parameters before starting the training." />
               </div>
 
-              {(isCompleted || isFailed) && (
+              {(isCompleted || isFailed || isStopped) && (
                 <div className="flex items-center gap-1 group">
                   <Button variant="outline" size="sm" onClick={fetchOutputResults} className="flex-1 sm:flex-none">
                     <Activity className="w-4 h-4 mr-1" /> <span className="sm:inline">Output Stats</span>
@@ -1615,7 +1772,7 @@ export function TrainPage() {
                 </div>
               )}
 
-              {(isCompleted) && (
+              {(isCompleted || isStopped) && (
                 <div className="flex items-center gap-1 group">
                   <Button 
                     variant="outline" 
@@ -1660,7 +1817,7 @@ export function TrainPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-1 group w-full sm:w-auto mt-2 sm:mt-0">
-                  {(isCompleted || isFailed) && (
+                  {(isCompleted || isFailed || isStopped) && (
                     <>
                       <Button variant="outline" size="sm" onClick={handleEvaluate} className="w-full sm:w-auto">
                         <LineChart className="w-4 h-4 mr-1" /> Evaluate
@@ -1675,9 +1832,9 @@ export function TrainPage() {
                     onClick={handleStart} 
                     className="w-full sm:w-auto" 
                     disabled={isStarting || !config.model_name_or_path || !config.dataset}
-                    variant={isCompleted ? "success" : "default"}
+                    variant={isCompleted || isStopped ? "success" : "default"}
                   >
-                    <Play className="w-4 h-4 mr-1" /> {(isCompleted || isFailed) ? 'Restart Training' : isStarting ? 'Starting...' : 'Start Training'}
+                    <Play className="w-4 h-4 mr-1" /> {(isCompleted || isStopped || isFailed) ? 'Restart Training' : isStarting ? 'Starting...' : 'Start Training'}
                   </Button>
                   <InfoTooltip content="Initializes the backend engine and starts the training job." impact="Locks resources and begins updating model weights based on your config." />
                 </div>
@@ -1686,18 +1843,99 @@ export function TrainPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {(isRunning || isCompleted || lossHistory.length > 0) && (
+          {(isRunning || isCompleted || isStopped || lossHistory.length > 0) && (
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
                 <div className="flex items-center">
                   <span>Training Progress</span>
                   <InfoTooltip content="Real-time completion percentage of the training job." impact="Helps estimate the remaining time and overall resource utilization." />
                 </div>
-                <span className="text-primary font-medium tabular-nums">{progress || 0}%</span>
+                <div className="flex items-center gap-2">
+                  {actualTrainingInfo && actualTrainingInfo.total_steps > 0 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Step {currentStep || 0} / {totalSteps || actualTrainingInfo.total_steps}
+                    </span>
+                  )}
+                  <span className="text-primary font-medium tabular-nums">{progress || 0}%</span>
+                </div>
               </div>
               <Progress value={progress || 0} className="h-2" variant="cyan" />
+              {actualTrainingInfo && actualTrainingInfo.total_steps > 0 && (
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                  <span>
+                    {currentStep && actualTrainingInfo.steps_per_epoch 
+                      ? Math.round(currentStep * actualTrainingInfo.steps_per_epoch / actualTrainingInfo.epochs || 0).toLocaleString()
+                      : '0'
+                    } samples
+                  </span>
+                  <span>
+                    {actualTrainingInfo.effective_samples?.toLocaleString()} total samples
+                  </span>
+                </div>
+              )}
             </div>
           )}
+
+          {/* Training Info - Dataset & Checkpoints */}
+          {config.dataset ? (
+            actualTrainingInfo ? (
+              <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="w-4 h-4 text-neon-cyan" />
+                  <span className="text-sm font-medium">Training Info</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-2 rounded-lg bg-muted/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Dataset</p>
+                    <p className="text-sm font-semibold tabular-nums">
+                      {actualTrainingInfo.effective_samples === -1 ? 'HF Dataset' : 
+                       actualTrainingInfo.effective_samples > 0 ? actualTrainingInfo.effective_samples.toLocaleString() : '—'}
+                      {actualTrainingInfo.dataset_samples > 0 && actualTrainingInfo.dataset_samples !== actualTrainingInfo.effective_samples && (
+                        <span className="text-[10px] text-muted-foreground"> / {actualTrainingInfo.dataset_samples.toLocaleString()}</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-muted/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Total Steps</p>
+                    <p className="text-sm font-semibold tabular-nums">{actualTrainingInfo.total_steps > 0 ? actualTrainingInfo.total_steps.toLocaleString() : '—'}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-muted/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">1st Checkpoint</p>
+                    <p className="text-sm font-semibold tabular-nums text-neon-green">
+                      {actualTrainingInfo.first_checkpoint_step > 0 ? `Step ${actualTrainingInfo.first_checkpoint_step}` : '—'}
+                    </p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-muted/30">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Checkpoints</p>
+                    <p className="text-sm font-semibold tabular-nums">{actualTrainingInfo.checkpoint_count > 0 ? `${actualTrainingInfo.checkpoint_count} total` : '—'}</p>
+                  </div>
+                </div>
+                {actualTrainingInfo.checkpoint_schedule && actualTrainingInfo.checkpoint_schedule.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border/30">
+                    <p className="text-[10px] text-muted-foreground mb-1.5">Checkpoint Schedule (steps):</p>
+                    <div className="flex flex-wrap gap-1">
+                      {actualTrainingInfo.checkpoint_schedule.slice(0, 10).map((step: number) => (
+                        <Badge key={step} variant="outline" className="text-[10px] h-5 border-neon-green/20 text-neon-green">
+                          {step}
+                        </Badge>
+                      ))}
+                      {actualTrainingInfo.checkpoint_schedule.length > 10 && (
+                        <Badge variant="outline" className="text-[10px] h-5">+{actualTrainingInfo.checkpoint_schedule.length - 10} more</Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Training Info</span>
+                </div>
+                <p className="text-sm text-muted-foreground">Loading dataset info...</p>
+              </div>
+            )
+          ) : null}
 
           {trainerLogData.length > 0 && (
             <div className="mb-4 p-3 bg-card rounded-lg border border-border/50 animate-in fade-in slide-in-from-top-2 duration-500">
@@ -1718,6 +1956,70 @@ export function TrainPage() {
               <LossChart data={trainerLogData} showEval={false} />
             </div>
           )}
+
+          {/* Checkpoints Display */}
+          {((isRunning || isCompleted || isStopped) && config.output_dir) && checkpoints.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <Save className="w-4 h-4 mr-2 text-neon-green" />
+                  <span className="text-sm font-medium">Saved Checkpoints</span>
+                </div>
+                <Badge variant="outline" className="text-[10px] h-5 border-neon-green/20 text-neon-green">
+                  {checkpoints.length} saved
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {checkpoints.map((cp, idx) => (
+                  <div 
+                    key={idx}
+                    className={cn(
+                      "p-2 rounded-lg border text-xs font-mono",
+                      cp.step === 'final' 
+                        ? "bg-neon-green/10 border-neon-green/30 text-neon-green" 
+                        : "bg-muted/30 border-border/50"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">
+                        {cp.step === 'final' ? 'Final' : `Step ${cp.step}`}
+                      </span>
+                      {cp.step === 'final' && <CheckCircle2 className="w-3 h-3" />}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Resume Training Button */}
+          {((isCompleted || isStopped) && checkpoints.length > 0 && (
+            <div className="mb-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full border-neon-amber/50 hover:bg-neon-amber/10"
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`http://localhost:8000/api/training/resume/${config.output_dir}`, { method: 'POST' })
+                    const data = await response.json()
+                    if (data.success && data.run_id) {
+                      // Show success message
+                      alert(`Training resumed! Run ID: ${data.run_id}`)
+                      // Reload the page to pick up the new training
+                      window.location.reload()
+                    } else {
+                      console.error('Resume failed:', data.error)
+                    }
+                  } catch (e) {
+                    console.error('Resume error:', e)
+                  }
+                }}
+              >
+                <RefreshCw className="w-4 h-4 mr-2" /> Resume Training from Last Checkpoint
+              </Button>
+            </div>
+          ))}
           <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto shadow-inner">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Training logs will appear here...</p>
@@ -1853,9 +2155,28 @@ export function TrainPage() {
               );
             })() : (
               <div className="flex flex-col items-center justify-center h-[300px] text-center border-2 border-dashed border-muted/50 rounded-2xl">
-                <XCircle className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                <p className="text-muted-foreground font-medium">No metrics available yet.</p>
-                <p className="text-xs text-muted-foreground/60 mt-1 max-w-[200px]">The training run may not have generated a state file.</p>
+                {outputResults?.stopped_early ? (
+                  <>
+                    <Square className="w-12 h-12 text-neon-amber/50 mb-4" />
+                    <p className="text-neon-amber font-medium">Training stopped early</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1 max-w-[250px]">
+                      {outputResults?.checkpoint_count > 0 
+                        ? `${outputResults.checkpoint_count} checkpoint(s) saved before stop. You can still export or evaluate from these checkpoints.`
+                        : 'No checkpoints were saved. Train for at least one save_steps interval before stopping.'}
+                    </p>
+                    {outputResults?.latest_checkpoint && (
+                      <Badge variant="outline" className="mt-3 border-neon-green/30 text-neon-green">
+                        Latest: {outputResults.latest_checkpoint}
+                      </Badge>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                    <p className="text-muted-foreground font-medium">No metrics available yet.</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1 max-w-[200px]">The training run may not have generated a state file.</p>
+                  </>
+                )}
               </div>
             )}
           </ScrollArea>

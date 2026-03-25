@@ -395,51 +395,51 @@ async def browse_files(request: BrowseRequest):
 async def browse_directories(request: BrowseRequest):
     """Browse only directories on the server filesystem, allowing any path."""
     data_dir = _get_data_dir()
-    
+
     # If no path, start with data_dir
     if not request.path:
         target = data_dir
     else:
         target = Path(request.path)
-        
+
     # If path doesn't exist, fallback to data_dir
     if not target.exists():
         target = data_dir
-        
+
     # Ensure it's a directory
     if not target.is_dir():
         target = target.parent
-        
+
     target = target.resolve()
-    
+
     entries: List[FileEntry] = []
-    
+
     try:
         # List all directories, ignore hidden ones
-        items = sorted([p for p in target.iterdir() if p.is_dir()], key=lambda p: p.name.lower())
+        items = sorted(
+            [p for p in target.iterdir() if p.is_dir()], key=lambda p: p.name.lower()
+        )
     except PermissionError:
         items = []
-        
+
     for item in items:
         if item.name.startswith(".") or item.name == "__pycache__":
             continue
-            
+
         entry = FileEntry(
-            name=item.name,
-            path=str(item),
-            is_directory=True,
-            is_supported=True
+            name=item.name, path=str(item), is_directory=True, is_supported=True
         )
         entries.append(entry)
-        
+
     parent = str(target.parent) if target.parent != target else None
-    
+
     return BrowseResponse(
         current_path=str(target),
         parent_path=parent,
         entries=entries,
-        data_dir=str(data_dir.resolve())
+        data_dir=str(data_dir.resolve()),
     )
+
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_dataset(request: AnalyzeRequest):
@@ -662,9 +662,11 @@ async def validate_hf_format(repo_id: str, split: str = "train"):
         from datasets import load_dataset
 
         try:
+            print(f"[HFValidate] Loading dataset: {repo_id}, split: {split}")
             ds = load_dataset(
                 repo_id, split=split, streaming=True, trust_remote_code=True
             )
+            print(f"[HFValidate] Dataset loaded successfully")
             # Get first sample
             sample = next(iter(ds))
             columns = list(sample.keys())
@@ -712,14 +714,17 @@ async def validate_hf_format(repo_id: str, split: str = "train"):
                 "sample": {k: str(v)[:100] for k, v in list(sample.items())[:5]},
             }
         except Exception as e:
+            print(f"[HFValidate] Failed to load dataset: {e}")
             raise HTTPException(
-                status_code=400, detail=f"Failed to load dataset info: {str(e)}"
+                status_code=400, detail=f"Failed to load dataset '{repo_id}': {str(e)}"
             )
     except ImportError:
         raise HTTPException(status_code=500, detail="datasets library not installed")
     except Exception as e:
+        print(f"[HFValidate] Unexpected error: {e}")
         raise HTTPException(
-            status_code=500, detail=f"Format validation failed: {str(e)}"
+            status_code=500,
+            detail=f"Format validation failed for '{repo_id}': {str(e)}",
         )
 
 
@@ -839,8 +844,12 @@ async def download_hf_dataset(repo_id: str, request: DownloadRequest):
 
         # Create a placeholder readme to avoid empty folder confusion
         with open(target_dir / "README.md", "w", encoding="utf-8") as f:
-            f.write(f"# {repo_id}\n\nThis dataset is configured via HuggingFace Hub URL.\n")
-            f.write(f"The actual data will be downloaded and cached by LlamaFactory during training.\n")
+            f.write(
+                f"# {repo_id}\n\nThis dataset is configured via HuggingFace Hub URL.\n"
+            )
+            f.write(
+                f"The actual data will be downloaded and cached by LlamaFactory during training.\n"
+            )
 
         return ConfigureResponse(
             success=True,

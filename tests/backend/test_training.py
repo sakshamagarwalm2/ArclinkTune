@@ -148,9 +148,44 @@ class TestTrainingConfigSaveLoad:
 
     def test_save_config(self, client, sample_training_config):
         response = client.post(
-            "/api/training/save?path=test_config.yaml",
-            json=sample_training_config
+            "/api/training/save?path=test_config.yaml", json=sample_training_config
         )
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True or response.status_code == 500
+
+
+class TestTrainingCheckpoints:
+    """Tests for checkpoint management"""
+
+    def test_list_checkpoints_returns_list(self, client):
+        response = client.get("/api/training/checkpoints/output/test_run")
+        assert response.status_code == 200
+        data = response.json()
+        assert "checkpoints" in data
+
+    def test_list_checkpoints_format(self, client):
+        response = client.get("/api/training/checkpoints/output/test_run")
+        data = response.json()
+        assert isinstance(data["checkpoints"], list)
+
+    def test_list_outputs_returns_list(self, client):
+        response = client.get("/api/training/outputs")
+        assert response.status_code == 200
+        data = response.json()
+        assert "outputs" in data
+        assert isinstance(data["outputs"], list)
+
+
+class TestTrainingResume:
+    """Tests for resuming training"""
+
+    def test_resume_training_invalid_path(self, client):
+        response = client.post("/api/training/resume/nonexistent_output")
+        data = response.json()
+        assert "success" in data
+
+    def test_resume_training_returns_run_id_or_error(self, client):
+        response = client.post("/api/training/resume/output/test_nonexistent")
+        data = response.json()
+        assert "success" in data

@@ -9,6 +9,7 @@ import { TrainPage } from './pages/TrainPage'
 import { ChatPage } from './pages/ChatPage'
 import { EvaluatePage } from './pages/EvaluatePage'
 import { ExportPage } from './pages/ExportPage'
+import { AutoTunePage } from './pages/AutoTunePage'
 import { MonitorPage } from './pages/MonitorPage'
 import { SetupPage } from './pages/SetupPage'
 import { AboutPage } from './pages/AboutPage'
@@ -63,6 +64,7 @@ function AppContent() {
         <Route path="/evaluate" element={<EvaluatePage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/export" element={<ExportPage />} />
+        <Route path="/autotune" element={<AutoTunePage />} />
         <Route path="/monitor" element={<MonitorPage />} />
         <Route path="/about" element={<AboutPage />} />
       </Routes>

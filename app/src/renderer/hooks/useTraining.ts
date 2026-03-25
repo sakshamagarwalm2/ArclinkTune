@@ -3,10 +3,11 @@ import { api } from './useApi'
 
 interface TrainingState {
   runId: string | null
-  status: 'idle' | 'running' | 'completed' | 'failed'
+  status: 'idle' | 'running' | 'completed' | 'failed' | 'stopped'
   progress: number
   currentStep: number
   totalSteps: number
+  numExamples: number
   logs: string[]
   lossHistory: number[]
   outputDir: string | null
@@ -22,6 +23,7 @@ export function useTraining() {
       progress: 0,
       currentStep: 0,
       totalSteps: 0,
+      numExamples: 0,
       logs: [],
       lossHistory: [],
       outputDir: null,
@@ -76,6 +78,7 @@ export function useTraining() {
           progress: status.progress || 0,
           currentStep: status.current_step || 0,
           totalSteps: status.total_steps || 0,
+          numExamples: status.num_examples || 0,
           logs: newLogs,
           lossHistory: newLossHistory,
           status: status.status === 'completed' ? 'completed'
@@ -113,6 +116,7 @@ export function useTraining() {
         progress: 0,
         currentStep: 0,
         totalSteps: 0,
+        numExamples: 0,
         logs: [`[${new Date().toLocaleTimeString()}] Training started...`],
         lossHistory: [],
         outputDir: result.output_dir || config.output_dir || null,
@@ -138,8 +142,9 @@ export function useTraining() {
       localStorage.removeItem(STORAGE_KEY)
       setState(prev => ({
         ...prev,
-        status: 'idle',
-        logs: [...prev.logs, `[${new Date().toLocaleTimeString()}] Training stopped by user.`],
+        status: 'stopped',
+        logs: [...prev.logs, `[${new Date().toLocaleTimeString()}] Training stopped by user. Checkpoints saved.`],
+        // Keep outputDir and other info for checkpoint access
       }))
     }
   }
@@ -152,6 +157,7 @@ export function useTraining() {
       progress: 0,
       currentStep: 0,
       totalSteps: 0,
+      numExamples: 0,
       logs: [],
       lossHistory: [],
       outputDir: null,

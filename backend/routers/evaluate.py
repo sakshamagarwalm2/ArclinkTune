@@ -174,3 +174,30 @@ async def get_evaluation_results(output_dir: str):
         results["eval_history"] = eval_history
 
     return results
+
+
+@router.get("/outputs")
+async def list_training_outputs():
+    """List all training output directories."""
+    output_base = settings.core_path / "output"
+    if not output_base.exists():
+        return {"outputs": []}
+
+    outputs = []
+    for item in output_base.iterdir():
+        if item.is_dir():
+            has_checkpoint = (
+                any("checkpoint" in f.name for f in item.iterdir())
+                if item.exists()
+                else False
+            )
+            outputs.append(
+                {
+                    "name": item.name,
+                    "path": str(item.relative_to(settings.core_path)),
+                    "has_checkpoints": has_checkpoint,
+                }
+            )
+
+    outputs.sort(key=lambda x: x["name"], reverse=True)
+    return {"outputs": outputs}

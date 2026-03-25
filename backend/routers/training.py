@@ -68,6 +68,7 @@ class TrainingConfig(BaseModel):
     lr_scheduler_type: str = "cosine"
     logging_steps: int = 5
     save_steps: int = 100
+    target_checkpoints: Optional[int] = None
     val_size: float = 0.0
     output_dir: str = ""
     bf16: bool = True
@@ -190,6 +191,7 @@ class TrainingConfig(BaseModel):
             "ds_stage",
             "ds_offload",
             "neftune_alpha",  # Not supported in current LlamaFactory version
+            "target_checkpoints",  # Our custom field for calculating save_steps
         ]
         for key in unsupported_fields:
             result.pop(key, None)
@@ -325,6 +327,206 @@ async def preview_training(config: TrainingConfig):
     return {"command": " ".join(cmd_parts), "config": cfg}
 
 
+@router.post("/info")
+async def get_training_info(config: TrainingConfig):
+    """Calculate training info including dataset size, total steps, and checkpoint schedule."""
+    import json
+
+    dataset_name = config.dataset
+    dataset_dir = config.dataset_dir or "data"
+    max_samples = config.max_samples or 0
+
+    sample_count = 0
+    found_dataset = False
+
+    search_paths = [
+        settings.data_dir,
+        settings.core_path / "data",
+    ]
+
+    import os
+
+    hf_cache = Path(os.path.expanduser("~/.cache/huggingface/datasets"))
+    if hf_cache.exists():
+        search_paths.append(hf_cache)
+
+    datasets_cache = settings.core_path / "datasets"
+    if datasets_cache.exists():
+        search_paths.append(datasets_cache)
+
+    if dataset_dir and dataset_dir != "data":
+        search_paths.insert(2, settings.core_path / dataset_dir)
+
+    print(f"[TrainingInfo] Looking for dataset: {dataset_name}")
+    print(f"[TrainingInfo] Search paths: {[str(p) for p in search_paths]}")
+
+    if dataset_name:
+        for search_path in search_paths:
+            if not search_path.exists():
+                print(f"[TrainingInfo] Path does not exist: {search_path}")
+                continue
+            print(f"[TrainingInfo] Checking path: {search_path}")
+
+            dataset_info_path = search_path / "dataset_info.json"
+            if dataset_info_path.exists():
+                print(f"[TrainingInfo] Found dataset_info.json at: {dataset_info_path}")
+                try:
+                    with open(dataset_info_path, "r") as f:
+                        dataset_info = json.load(f)
+                        print(
+                            f"[TrainingInfo] Available datasets: {list(dataset_info.keys())}"
+                        )
+
+                        if dataset_name in dataset_info:
+                            ds_info = dataset_info[dataset_name]
+
+                            hf_hub_url = ds_info.get("hf_hub_url")
+                            total_samples = ds_info.get("total_samples")
+
+                            if hf_hub_url:
+                                sample_count = total_samples or -1
+                                found_dataset = True
+                                print(
+                                    f"[TrainingInfo] HuggingFace dataset: {hf_hub_url}, samples: {sample_count}"
+                                )
+                                break
+
+                            file_name = (
+                                ds_info.get("file_name")
+                                or ds_info.get("file_names", [f"{dataset_name}.json"])[
+                                    0
+                                ]
+                            )
+
+                            if isinstance(file_name, list):
+                                file_name = file_name[0]
+
+                            dataset_path = search_path / file_name
+                            if not dataset_path.exists():
+                                dataset_path = search_path / dataset_name
+
+                            print(
+                                f"[TrainingInfo] Checking dataset file: {dataset_path}"
+                            )
+
+                            if dataset_path.exists():
+                                found_dataset = True
+                                ext = dataset_path.suffix.lower()
+                                if ext == ".json":
+                                    with open(dataset_path, "r", encoding="utf-8") as f:
+                                        data = json.load(f)
+                                        sample_count = (
+                                            len(data) if isinstance(data, list) else 1
+                                        )
+                                elif ext == ".jsonl":
+                                    with open(dataset_path, "r", encoding="utf-8") as f:
+                                        sample_count = sum(
+                                            1 for line in f if line.strip()
+                                        )
+                                elif ext == ".csv":
+                                    with open(dataset_path, "r", encoding="utf-8") as f:
+                                        sample_count = max(0, sum(1 for _ in f) - 1)
+                                print(
+                                    f"[TrainingInfo] Found {sample_count} samples in {dataset_path}"
+                                )
+                                break
+                except Exception as e:
+                    print(f"[TrainingInfo] Error reading dataset: {e}")
+
+            if found_dataset:
+                break
+
+            for ext in [".json", ".jsonl", ".csv"]:
+                dataset_path = search_path / f"{dataset_name}{ext}"
+                if dataset_path.exists():
+                    found_dataset = True
+                    try:
+                        if ext == ".json":
+                            with open(dataset_path, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                                sample_count = (
+                                    len(data) if isinstance(data, list) else 1
+                                )
+                        elif ext == ".jsonl":
+                            with open(dataset_path, "r", encoding="utf-8") as f:
+                                sample_count = sum(1 for line in f if line.strip())
+                        elif ext == ".csv":
+                            with open(dataset_path, "r", encoding="utf-8") as f:
+                                sample_count = max(0, sum(1 for _ in f) - 1)
+                        print(
+                            f"[TrainingInfo] Found {sample_count} samples (direct): {dataset_path}"
+                        )
+                    except:
+                        pass
+                    break
+
+    if max_samples and max_samples > 0:
+        if sample_count == -1:
+            # HuggingFace dataset with unknown total size — use max_samples as the expected size
+            effective_samples = max_samples
+        elif sample_count > 0:
+            effective_samples = min(sample_count, max_samples)
+        else:
+            effective_samples = max_samples  # fallback
+    else:
+        # No max_samples — use actual count, or 0 for HF datasets with unknown size  
+        effective_samples = max(0, sample_count) if sample_count != -1 else 0
+
+
+    print(
+        f"[TrainingInfo] max_samples: {max_samples}, sample_count: {sample_count}, effective: {effective_samples}"
+    )
+
+    batch_size = config.per_device_train_batch_size
+    grad_accum = config.gradient_accumulation_steps
+    epochs = config.num_train_epochs
+
+    steps_per_epoch = (
+        effective_samples // (batch_size * grad_accum) if effective_samples > 0 else 0
+    )
+    if steps_per_epoch == 0 and effective_samples > 0:
+        steps_per_epoch = 1
+    total_steps = int(steps_per_epoch * epochs)
+
+    target_checkpoints = config.target_checkpoints  # Direct Pydantic field access
+    save_steps = (
+        config.save_steps if config.save_steps and config.save_steps > 0 else 100
+    )
+
+    print(
+        f"[TrainingInfo] target_checkpoints: {target_checkpoints}, save_steps: {save_steps}, total_steps: {total_steps}"
+    )
+
+    if target_checkpoints and target_checkpoints > 0 and total_steps > 0:
+        save_steps = max(1, total_steps // target_checkpoints)
+        print(
+            f"[TrainingInfo] Adjusted save_steps to: {save_steps} based on target_checkpoints"
+        )
+
+    first_checkpoint_step = save_steps if total_steps > 0 else 0
+    print(f"[TrainingInfo] first_checkpoint_step: {first_checkpoint_step}")
+
+    checkpoint_schedule = []
+    if total_steps > 0 and save_steps > 0:
+        for step in range(save_steps, total_steps + 1, save_steps):
+            checkpoint_schedule.append(step)
+
+    return {
+        "dataset_samples": sample_count,
+        "effective_samples": effective_samples,
+        "batch_size": batch_size,
+        "gradient_accumulation_steps": grad_accum,
+        "epochs": epochs,
+        "steps_per_epoch": steps_per_epoch,
+        "total_steps": total_steps,
+        "save_steps": save_steps,
+        "first_checkpoint_step": first_checkpoint_step,
+        "checkpoint_schedule": checkpoint_schedule,
+        "checkpoint_count": len(checkpoint_schedule),
+        "target_checkpoints": target_checkpoints,
+    }
+
+
 @router.post("/start")
 async def start_training(config: TrainingConfig):
     try:
@@ -341,9 +543,76 @@ async def get_training_status(run_id: str):
 
 
 @router.post("/stop/{run_id}")
-async def stop_training(run_id: str):
-    success = training_service.stop_training(run_id)
+async def stop_training(run_id: str, save_checkpoint: bool = True):
+    success = training_service.stop_training(run_id, save_checkpoint)
     return {"success": success}
+
+
+@router.get("/checkpoints/{output_dir:path}")
+async def list_checkpoints(output_dir: str):
+    """List all checkpoints in the output directory."""
+    full_path = settings.core_path / output_dir
+    checkpoints = training_service.list_checkpoints(str(full_path))
+    return {"checkpoints": checkpoints, "output_dir": output_dir}
+
+
+@router.post("/resume/{output_dir:path}")
+async def resume_training(output_dir: str):
+    """Resume training from the last checkpoint."""
+    full_path = settings.core_path / output_dir
+    try:
+        run_id = training_service.resume_training(str(full_path))
+        if run_id:
+            return {"run_id": run_id, "success": True}
+        return {"success": False, "error": "No checkpoint found to resume from"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/outputs")
+async def list_training_outputs():
+    """List all training output directories."""
+    output_base = settings.core_path / "output"
+    if not output_base.exists():
+        return {"outputs": []}
+
+    outputs = []
+    for item in output_base.iterdir():
+        if item.is_dir():
+            has_checkpoint = (
+                any("checkpoint" in f.name for f in item.iterdir())
+                if item.exists()
+                else False
+            )
+
+            import glob
+
+            checkpoints = sorted(
+                glob.glob(str(item / "checkpoint-*")),
+                key=lambda x: (
+                    int(x.split("-")[-1]) if x.split("-")[-1].isdigit() else 0
+                ),
+                reverse=True,
+            )
+            latest_step = 0
+            if checkpoints:
+                latest_step = (
+                    int(checkpoints[0].split("-")[-1])
+                    if checkpoints[0].split("-")[-1].isdigit()
+                    else 0
+                )
+
+            outputs.append(
+                {
+                    "name": item.name,
+                    "path": str(item.relative_to(settings.core_path)),
+                    "has_checkpoints": has_checkpoint,
+                    "latest_step": latest_step,
+                }
+            )
+
+    outputs.sort(key=lambda x: x["name"], reverse=True)
+    return {"outputs": outputs}
 
 
 @router.get("/logs/{run_id}")
@@ -386,7 +655,7 @@ async def get_trainer_log(output_dir: str):
 async def get_training_results(output_dir: str):
     """Read training results (train_results.json, all_results.json)."""
     output_path = settings.core_path / output_dir
-    results = {"found": False}
+    results = {"found": False, "stopped_early": False}
 
     for filename in ["train_results.json", "all_results.json", "eval_results.json"]:
         file_path = output_path / filename
@@ -397,6 +666,28 @@ async def get_training_results(output_dir: str):
                     results["found"] = True
             except:
                 continue
+
+    import glob
+
+    checkpoint_dirs = sorted(
+        glob.glob(str(output_path / "checkpoint-*")),
+        key=lambda x: int(x.split("-")[-1]) if x.split("-")[-1].isdigit() else 0,
+        reverse=True,
+    )
+
+    results["checkpoint_count"] = len(checkpoint_dirs)
+    if checkpoint_dirs:
+        results["latest_checkpoint"] = (
+            Path(checkpoint_dirs[0]).name if checkpoint_dirs else None
+        )
+        results["found"] = True
+    else:
+        results["stopped_early"] = True
+
+    if not results["found"]:
+        results["message"] = (
+            "Training was stopped before any checkpoints or results were saved."
+        )
 
     return results
 

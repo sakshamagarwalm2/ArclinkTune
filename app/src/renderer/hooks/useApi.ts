@@ -213,6 +213,7 @@ export const api = {
     getLogs: (runId: string) => fetchApi<{ logs: string }>(`/training/logs/${runId}`),
     getLoss: (runId: string) => fetchApi<{ loss_history: number[] }>(`/training/loss/${runId}`),
     getDatasets: () => fetchApi<{ name: string; path: string }[]>('/training/datasets'),
+    getInfo: (config: Partial<TrainingConfig>) => fetchApi<any>('/training/info', { method: 'POST', body: JSON.stringify(config) }),
     saveConfig: (config: TrainingConfig, path: string) => fetchApi('/training/save', { method: 'POST', body: JSON.stringify({ config, path }) }),
     loadConfig: (path: string) => fetchApi<TrainingConfig>('/training/load', { method: 'POST', body: JSON.stringify({ path }) }),
     getComputeDevices: () => fetchApi<any>('/training/compute-devices'),

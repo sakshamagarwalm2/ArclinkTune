@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List, Optional
 import os
+from pathlib import Path
 
 router = APIRouter()
 
@@ -131,3 +132,58 @@ async def chat(body: dict):
 @router.get("/status")
 async def get_chat_status():
     return chat_service.get_status()
+
+
+@router.get("/checkpoints/{output_dir:path}")
+async def list_checkpoints(output_dir: str):
+    """List available checkpoints in the output directory for selection."""
+    from config import get_settings
+
+    settings = get_settings()
+
+    full_path = settings.core_path / output_dir
+    if not full_path.exists():
+        return {"checkpoints": [], "error": "Output directory not found"}
+
+    import glob
+
+    checkpoints = []
+
+    checkpoint_dirs = sorted(
+        glob.glob(str(full_path / "checkpoint-*")),
+        key=lambda x: int(x.split("-")[-1]) if x.split("-")[-1].isdigit() else 0,
+        reverse=True,
+    )
+
+    for ckpt_dir in checkpoint_dirs:
+        ckpt_path = Path(ckpt_dir)
+        step_num = ckpt_path.name.replace("checkpoint-", "")
+
+        files = list(ckpt_path.glob("*"))
+        has_adapter = any(
+            f.name
+            in ["adapter_config.json", "adapter_model.safetensors", "adapter_model.bin"]
+            for f in files
+        )
+
+        if has_adapter:
+            checkpoints.append(
+                {
+                    "path": str(ckpt_path),
+                    "step": step_num,
+                    "label": f"Step {step_num}" if step_num.isdigit() else step_num,
+                }
+            )
+
+    final_checkpoint = full_path / "checkpoint-final"
+    if final_checkpoint.exists():
+        checkpoints.insert(
+            0,
+            {
+                "path": str(final_checkpoint),
+                "step": "final",
+                "label": "Final (Best)",
+            },
+        )
+
+    return {"checkpoints": checkpoints, "output_dir": output_dir}
