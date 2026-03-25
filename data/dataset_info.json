@@ -1,79 +1,15 @@
 {
-  "alpaca_sample": {
-    "file_name": "alpaca_sample.json",
-    "formatting": "alpaca",
-    "columns": {
-      "prompt": "instruction",
-      "response": "output",
-      "query": "input"
-    }
-  },
   "sharegpt_sample": {
     "file_name": "sharegpt_sample.json",
     "formatting": "sharegpt",
     "columns": {
-      "messages": "conversations",
+      "messages": "conversations"
+    },
+    "tags": {
       "role_tag": "from",
       "content_tag": "value",
       "user_tag": "human",
       "assistant_tag": "gpt"
     }
-  },
-  "alpaca": {
-    "file_name": "alpaca.json",
-    "formatting": "alpaca",
-    "columns": {
-      "prompt": "instruction",
-      "query": "input",
-      "response": "output"
-    },
-    "description": "Stanford Alpaca dataset - general instruction tuning",
-    "source": "https://huggingface.co/datasets/yahma/alpaca-cleaned"
-  },
-  "identity": {
-    "file_name": "identity.json",
-    "formatting": "alpaca",
-    "columns": {
-      "prompt": "instruction",
-      "query": "input",
-      "response": "output"
-    },
-    "description": "Identity dataset - defines model personality and name"
-  },
-  "openorca": {
-    "hf_hub_url": "Open-Orca/OpenOrca",
-    "formatting": "sharegpt",
-    "columns": {
-      "messages": "messages"
-    },
-    "tags": {
-      "role_tag": "role",
-      "content_tag": "content"
-    },
-    "description": "OpenOrca dataset - reasoning and QA from GPT-4",
-    "source": "https://huggingface.co/datasets/Open-Orca/OpenOrca"
-  },
-  "code_alpaca": {
-    "hf_hub_url": "sahil2801/CodeAlpaca-20k",
-    "formatting": "alpaca",
-    "columns": {
-      "prompt": "instruction",
-      "query": "input",
-      "response": "output"
-    },
-    "description": "Code Alpaca dataset - code generation and explanation",
-    "source": "https://huggingface.co/datasets/sahil2801/CodeAlpaca-20k"
-  },
-  "gsm8k": {
-    "hf_hub_url": "openai/gsm8k",
-    "formatting": "alpaca",
-    "columns": {
-      "prompt": "question",
-      "response": "answer"
-    },
-    "subset": "main",
-    "split": "train",
-    "description": "GSM8K dataset - grade school math problems",
-    "source": "https://huggingface.co/datasets/openai/gsm8k"
   }
 }

@@ -82,6 +82,7 @@ class ConfigureResponse(BaseModel):
     success: bool
     dataset_name: str
     message: str
+    data_dir: str = ""
 
 
 class DatasetInfoEntry(BaseModel):
@@ -470,6 +471,7 @@ async def configure_dataset(request: ConfigureRequest):
         success=True,
         dataset_name=request.dataset_name,
         message=f"Dataset '{request.dataset_name}' configured in {DATA_CONFIG}",
+        data_dir=str(data_dir),
     )
 
 
@@ -709,6 +711,7 @@ async def download_hf_dataset(
             "message": f"Dataset '{repo_id}' configured. It will be downloaded when training starts.",
             "dataset_name": repo_id.replace("/", "_"),
             "config_path": str(config_path),
+            "data_dir": str(data_dir),
         }
     except ImportError as e:
         raise HTTPException(status_code=500, detail=f"Missing library: {str(e)}")
@@ -874,4 +877,5 @@ async def copy_file_to_data(request: dict):
         "dataset_name": dataset_name,
         "format": formatting,
         "relative_path": source.name,
+        "data_dir": str(data_dir),
     }

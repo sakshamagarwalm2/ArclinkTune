@@ -135,12 +135,18 @@ export function DatasetBrowser({ onSelect, onClose }: DatasetBrowserProps) {
 function SampleDatasetsTab({ onSelect }: { onSelect: (name: string, dir: string) => void }) {
   const [datasets, setDatasets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [dataDir, setDataDir] = useState('data')
 
   useEffect(() => {
     fetch(`${API_BASE}/info`)
       .then(res => res.json())
       .then(data => {
         setDatasets(data.datasets || [])
+        if (data.config_path) {
+          // Extract directory from config_path (e.g. "C:\...\data\dataset_info.json" -> "C:\...\data")
+          const dir = data.config_path.replace(/[\\/]dataset_info\.json$/, '')
+          setDataDir(dir)
+        }
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -187,7 +193,7 @@ function SampleDatasetsTab({ onSelect }: { onSelect: (name: string, dir: string)
             <div
               key={dataset.name}
               className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all cursor-pointer group"
-              onClick={() => onSelect(dataset.name, 'data')}
+              onClick={() => onSelect(dataset.name, dataDir)}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
@@ -288,7 +294,7 @@ function HuggingFaceTab({ onSelect }: { onSelect: (name: string, dir: string) =>
       const data = await res.json()
       
       if (data.success) {
-        onSelect(data.dataset_name, 'data')
+        onSelect(data.dataset_name, data.data_dir || 'data')
       }
     } catch (e) {
       console.error('Configure failed:', e)
@@ -542,7 +548,7 @@ function LocalFilesTab({ onSelect }: { onSelect: (name: string, dir: string) => 
       })
       const data = await res.json()
       if (data.success) {
-        onSelect(datasetName.trim(), currentPath || 'data')
+        onSelect(datasetName.trim(), data.data_dir || currentPath || 'data')
       }
     } catch (e: any) {
       setError(e.message || 'Failed to configure dataset')
@@ -579,7 +585,7 @@ function LocalFilesTab({ onSelect }: { onSelect: (name: string, dir: string) => 
           const data = await res.json()
           
           if (data.success) {
-            onSelect(data.dataset_name, 'data')
+            onSelect(data.dataset_name, data.data_dir || 'data')
           } else {
             setError(data.detail || 'Failed to copy file')
           }

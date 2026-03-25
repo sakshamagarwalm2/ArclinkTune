@@ -252,7 +252,10 @@ export function TrainPage() {
 
   const { data: availableDatasets = [], isLoading: loadingDatasets } = useQuery<any[]>({
     queryKey: ['models', 'datasets'],
-    queryFn: () => api.training.getDatasets(),
+    queryFn: async () => {
+      const info = await api.datasets.getInfo()
+      return (info.datasets || []).map((d: any) => ({ name: d.name, path: d.name }))
+    },
     staleTime: 5 * 60 * 1000,
   })
 
@@ -1696,31 +1699,21 @@ export function TrainPage() {
             </div>
           )}
 
-          {(isRunning || isCompleted) && (
-            <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
+          {trainerLogData.length > 0 && (
+            <div className="mb-4 p-3 bg-card rounded-lg border border-border/50 animate-in fade-in slide-in-from-top-2 duration-500">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
-                  <LineChart className="w-4 h-4 mr-2 text-neon-cyan" />
-                  <span className="text-sm font-medium">Loss Curve</span>
+                  <Activity className="w-4 h-4 mr-2 text-neon-cyan" />
+                  <span className="text-sm font-medium">Training Loss Curve</span>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {trainerLogData.length > 0 ? `${trainerLogData.length} data points` : 'Waiting for data...'}
-                </span>
-              </div>
-              <LossChart data={trainerLogData} showEval={false} />
-            </div>
-          )}
-
-          {trainerLogData.length > 0 && !isRunning && !isCompleted && (
-            <div className="mb-4 p-3 bg-card rounded-lg border border-border/50">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center">
-                  <LineChart className="w-4 h-4 mr-2 text-neon-cyan" />
-                  <span className="text-sm font-medium">Loss Curve</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                    {isRunning ? 'Real-time Monitoring' : 'Final Results'}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] h-5 tabular-nums border-primary/20">
+                    {trainerLogData.length} pts
+                  </Badge>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {trainerLogData.length} data points
-                </span>
               </div>
               <LossChart data={trainerLogData} showEval={false} />
             </div>

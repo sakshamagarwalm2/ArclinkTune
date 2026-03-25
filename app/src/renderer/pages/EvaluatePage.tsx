@@ -19,10 +19,14 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Search, RefreshCw } from 'lucide-react'
+import { DatasetBrowser } from '@/components/DatasetBrowser'
 
 export function EvaluatePage() {
   const { lastTrainingResult, setLastEvalResult } = useApp()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [isRunning, setIsRunning] = useState(false)
   const [progress, setProgress] = useState(0)
   const [logs, setLogs] = useState<string[]>([])
@@ -37,6 +41,16 @@ export function EvaluatePage() {
   const [outputResults, setOutputResults] = useState<any>(null)
   const [previewConfig, setPreviewConfig] = useState<any>(null)
   const [isStarting, setIsStarting] = useState(false)
+  const [showBrowser, setShowBrowser] = useState(false)
+
+  const { data: availableDatasets = [], isLoading: loadingDatasets } = useQuery<any[]>({
+    queryKey: ['models', 'datasets'],
+    queryFn: async () => {
+      const info = await api.datasets.getInfo()
+      return (info.datasets || []).map((d: any) => ({ name: d.name, path: d.name }))
+    },
+    staleTime: 5 * 60 * 1000,
+  })
 
   useEffect(() => {
     if (lastTrainingResult) {
@@ -319,21 +333,34 @@ export function EvaluatePage() {
                 <label className="text-sm font-medium">Dataset</label>
                 <InfoTooltip content="Select the dataset used for training or evaluation." impact="Must match the dataset defined in dataset_info.json" />
               </div>
-              <Select value={dataset} onValueChange={setDataset}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a dataset" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="alpaca_sample">alpaca_sample</SelectItem>
-                  <SelectItem value="sharegpt_sample">sharegpt_sample</SelectItem>
-                  <SelectItem value="alpaca">alpaca</SelectItem>
-                  <SelectItem value="identity">identity</SelectItem>
-                  <SelectItem value="openorca">openorca</SelectItem>
-                  <SelectItem value="code_alpaca">code_alpaca</SelectItem>
-                  <SelectItem value="gsm8k">gsm8k</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Select the dataset to evaluate on</p>
+              <div className="flex gap-2">
+                {loadingDatasets ? (
+                  <div className="flex-1 flex items-center gap-2 text-muted-foreground text-sm">
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Loading datasets...
+                  </div>
+                ) : (
+                  <Select value={dataset} onValueChange={setDataset}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select a dataset" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60">
+                      {availableDatasets.map(d => (
+                        <SelectItem key={d.path} value={d.path}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                <Button variant="outline" size="icon" onClick={() => setShowBrowser(true)} title="Browse & auto-configure dataset">
+                  <Search className="w-4 h-4" />
+                </Button>
+              </div>
+              <Input 
+                value={dataset} 
+                onChange={(e) => setDataset(e.target.value)}
+                placeholder="Or enter dataset name: my_dataset, alpaca"
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground">Dataset name from dataset_info.json, or click Browse to add a new one</p>
             </div>
 
             <div className="space-y-2">
@@ -746,7 +773,7 @@ export function EvaluatePage() {
                                   group.color
                                 )}>
                                   {typeof value === 'number' 
-                                    ? (value % 1 === 0 ? value : value.toFixed(4))
+                                    ? (value > 1000 ? new Intl.NumberFormat().format(Math.round(value)) : value.toFixed(4))
                                     : String(value)}
                                 </p>
                               </CardContent>
@@ -800,6 +827,17 @@ export function EvaluatePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {showBrowser && (
+        <DatasetBrowser
+          onSelect={(name, dir) => {
+            setDataset(name)
+            if (dir) setDatasetDir(dir)
+            setShowBrowser(false)
+            queryClient.invalidateQueries({ queryKey: ['models', 'datasets'] })
+          }}
+          onClose={() => setShowBrowser(false)}
+        />
+      )}
     </div>
   )
 }
