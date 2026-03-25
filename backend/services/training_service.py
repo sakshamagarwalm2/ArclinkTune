@@ -205,7 +205,19 @@ class TrainingService:
             print(f"Log reader error for {run_id}: {e}")
         finally:
             if run.status == "running":
-                run.status = "completed"
+                return_code = run.process.returncode
+                if return_code is not None and return_code != 0:
+                    run.status = "failed"
+                    print(
+                        f"[TrainingService] Training {run_id} failed with exit code {return_code}"
+                    )
+                    # Print last 10 log lines for debugging
+                    if run.log_lines:
+                        print("[TrainingService] Last log lines:")
+                        for line in run.log_lines[-10:]:
+                            print(f"  {line}")
+                else:
+                    run.status = "completed"
                 run.progress = 100
 
     def start_training(self, config: Dict[str, Any]) -> tuple:

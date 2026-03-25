@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Settings,
 } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -25,6 +26,7 @@ const navItems = [
   { path: '/chat', icon: MessageSquare, label: 'Chat', description: 'Test your models' },
   { path: '/export', icon: Download, label: 'Export', description: 'Save trained models' },
   { path: '/monitor', icon: Monitor, label: 'Monitor', description: 'System resources' },
+  { path: '/settings', icon: Settings, label: 'Settings', description: 'App preferences' },
   { path: '/about', icon: Info, label: 'About', description: 'App & Creator info' },
 ]
 

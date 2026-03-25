@@ -13,6 +13,7 @@ import { AutoTunePage } from './pages/AutoTunePage'
 import { MonitorPage } from './pages/MonitorPage'
 import { SetupPage } from './pages/SetupPage'
 import { AboutPage } from './pages/AboutPage'
+import { SettingsPage } from './pages/SettingsPage'
 
 function AppContent() {
   useTheme()
@@ -66,6 +67,7 @@ function AppContent() {
         <Route path="/export" element={<ExportPage />} />
         <Route path="/autotune" element={<AutoTunePage />} />
         <Route path="/monitor" element={<MonitorPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/about" element={<AboutPage />} />
       </Routes>
     </Layout>

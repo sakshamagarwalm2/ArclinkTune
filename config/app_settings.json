@@ -1,0 +1,19 @@
+{
+  "ai_provider": {
+    "provider": "none",
+    "gemini_api_key": null,
+    "gemini_model": "gemini-1.5-flash",
+    "ollama_base_url": "http://localhost:11434",
+    "ollama_model": "llama3.1:8b",
+    "temperature": 0.3,
+    "max_tokens": 2000
+  },
+  "autotune_defaults": {
+    "probe_epochs": 2,
+    "max_trials": 5,
+    "max_runtime_hours": 6
+  },
+  "theme": "dark",
+  "notifications_enabled": true,
+  "report_format": "html"
+}

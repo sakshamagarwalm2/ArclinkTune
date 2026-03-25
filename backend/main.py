@@ -9,8 +9,19 @@ sys.path.insert(0, str(project_root / "core" / "LlamaFactory" / "src"))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import models, training, chat, system, evaluate, export, datasets
+from routers import (
+    models,
+    training,
+    chat,
+    system,
+    evaluate,
+    export,
+    datasets,
+    autotune,
+    settings as settings_router,
+)
 from config import get_settings
+from services.autotune_engine import AutoTuneEngine
 
 settings = get_settings()
 
@@ -35,15 +46,24 @@ app.include_router(evaluate.router, prefix="/api/evaluate", tags=["Evaluate"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(system.router, prefix="/api/system", tags=["System"])
 app.include_router(datasets.router, prefix="/api/datasets", tags=["Datasets"])
+app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(autotune.router, prefix="/api/autotune", tags=["AutoTune"])
+
+autotune_engine = AutoTuneEngine(training.training_service)
+autotune.set_autotune_engine(autotune_engine)
+
 
 @app.get("/")
 async def root():
     return {"message": "ArclinkTune API", "version": "1.0.0"}
 
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host=settings.api_host, port=settings.api_port)

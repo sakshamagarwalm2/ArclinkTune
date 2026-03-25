@@ -176,11 +176,25 @@ export function useApi() {
     getSupportedFormats: () => useQuery<any>({ queryKey: ['datasets', 'formats'], queryFn: () => fetchApi('/datasets/supported-formats') }),
   }
 
+  const settings = {
+    get: () => useQuery<any>({ queryKey: ['settings'], queryFn: () => fetchApi('/settings') }),
+    getAiProvider: () => useQuery<any>({ queryKey: ['settings', 'ai-provider'], queryFn: () => fetchApi('/settings/ai-provider') }),
+    getOllamaModels: (baseUrl?: string) => useQuery<any>({ queryKey: ['settings', 'ollama-models', baseUrl], queryFn: () => fetchApi(`/settings/ollama-models?base_url=${encodeURIComponent(baseUrl || 'http://localhost:11434')}`) }),
+    getGeminiModels: () => useQuery<any>({ queryKey: ['settings', 'gemini-models'], queryFn: () => fetchApi('/settings/gemini-models') }),
+  }
+
+  const autotune = {
+    getSessions: () => useQuery<any[]>({ queryKey: ['autotune', 'sessions'], queryFn: () => fetchApi('/autotune/sessions'), refetchInterval: 10000 }),
+    getSession: (sessionId: string) => useQuery<any>({ queryKey: ['autotune', 'sessions', sessionId], queryFn: () => fetchApi(`/autotune/sessions/${sessionId}`), enabled: !!sessionId, refetchInterval: 5000 }),
+  }
+
   return {
     models,
     training,
     system,
     datasets,
+    settings,
+    autotune,
     fetchApi,
   }
 }
@@ -261,5 +275,27 @@ export const api = {
     previewHF: (repoId: string, split?: string) => fetchApi<any>(`/datasets/hf/${encodeURIComponent(repoId)}/preview?split=${split || 'train'}`),
     validateHFFormat: (repoId: string) => fetchApi<any>(`/datasets/hf/validate-format?repo_id=${encodeURIComponent(repoId)}`),
     downloadHF: (repoId: string, splits?: string) => fetchApi<any>('/datasets/hf/' + encodeURIComponent(repoId) + '/download', { method: 'POST', body: JSON.stringify({ splits }) }),
+  },
+  settings: {
+    get: () => fetchApi<any>('/settings'),
+    update: (data: any) => fetchApi<any>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
+    getAiProvider: () => fetchApi<any>('/settings/ai-provider'),
+    updateAiProvider: (config: any) => fetchApi<any>('/settings/ai-provider', { method: 'PUT', body: JSON.stringify(config) }),
+    testGemini: (apiKey: string, model: string) => fetchApi<any>('/settings/test-gemini', { method: 'POST', body: JSON.stringify({ api_key: apiKey, model }) }),
+    testOllama: (baseUrl: string, model: string) => fetchApi<any>('/settings/test-ollama', { method: 'POST', body: JSON.stringify({ base_url: baseUrl, model }) }),
+    getOllamaModels: (baseUrl?: string) => fetchApi<any>(`/settings/ollama-models?base_url=${encodeURIComponent(baseUrl || 'http://localhost:11434')}`),
+    getGeminiModels: () => fetchApi<any>('/settings/gemini-models'),
+  },
+  autotune: {
+    start: (config: any) => fetchApi<{ session_id: string; status: string }>('/autotune/start', { method: 'POST', body: JSON.stringify(config) }),
+    getSessions: () => fetchApi<any[]>('/autotune/sessions'),
+    getSession: (sessionId: string) => fetchApi<any>(`/autotune/sessions/${sessionId}`),
+    pause: (sessionId: string) => fetchApi<any>(`/autotune/sessions/${sessionId}/pause`, { method: 'POST' }),
+    resume: (sessionId: string) => fetchApi<any>(`/autotune/sessions/${sessionId}/resume`, { method: 'POST' }),
+    stop: (sessionId: string) => fetchApi<any>(`/autotune/sessions/${sessionId}/stop`, { method: 'POST' }),
+    getReport: (sessionId: string, format?: string) => fetchApi<any>(`/autotune/sessions/${sessionId}/report?format=${format || 'json'}`),
+    getBestConfig: (sessionId: string) => fetchApi<string>(`/autotune/sessions/${sessionId}/best-config`),
+    delete: (sessionId: string) => fetchApi<any>(`/autotune/sessions/${sessionId}`, { method: 'DELETE' }),
+    validateProvider: (config: any) => fetchApi<any>('/autotune/validate-ai-provider', { method: 'POST', body: JSON.stringify(config) }),
   },
 }
