@@ -138,6 +138,11 @@ interface TrainingConfig {
   extra_args: string
 }
 
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
+
 export function TrainPage() {
   const navigate = useNavigate()
   const { status, progress, startTraining, stopTraining, clearTraining, lossHistory, currentStep, totalSteps, runId, logs } = useTraining()
@@ -148,6 +153,10 @@ export function TrainPage() {
   
   const prevSelectedModelRef = useRef<string>('')
   const [previewCommand, setPreviewCommand] = useState('')
+  const [previewConfig, setPreviewConfig] = useState<any>(null)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [showOutputStatsModal, setShowOutputStatsModal] = useState(false)
+  const [outputResults, setOutputResults] = useState<any>(null)
   const [isStarting, setIsStarting] = useState(false)
   const [initialMountDone, setInitialMountDone] = useState(false)
   const [trainerLogData, setTrainerLogData] = useState<any[]>([])
@@ -415,8 +424,28 @@ export function TrainPage() {
   )
 
   const handlePreview = async () => {
-    const response = await api.training.preview(config as any) as { command: string }
-    setPreviewCommand(response.command)
+    try {
+      const response = await api.training.preview(config as any) as { command: string, config: any }
+      setPreviewCommand(response.command)
+      setPreviewConfig(response.config)
+      setShowPreviewModal(true)
+    } catch (error) {
+      console.error('Preview failed:', error)
+    }
+  }
+
+  const fetchOutputResults = async () => {
+    if (!config.output_dir) return
+    try {
+      const response = await fetch(`http://localhost:8000/api/training/results/${config.output_dir}`)
+      if (response.ok) {
+        const data = await response.json()
+        setOutputResults(data)
+        setShowOutputStatsModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to fetch results:', error)
+    }
   }
 
   const handleStart = async () => {
@@ -1571,8 +1600,17 @@ export function TrainPage() {
                 <Button variant="outline" size="sm" onClick={handlePreview} className="flex-1 sm:flex-none">
                   <Eye className="w-4 h-4 mr-1" /> <span className="sm:inline">Preview</span>
                 </Button>
-                <InfoTooltip content="Shows the raw command line that will be executed." impact="Helps power-users verify the final argument string before starting." />
+                <InfoTooltip content="Shows the full configuration and command that will be executed." impact="Helps verify all parameters before starting the training." />
               </div>
+
+              {(isCompleted || isFailed) && (
+                <div className="flex items-center gap-1 group">
+                  <Button variant="outline" size="sm" onClick={fetchOutputResults} className="flex-1 sm:flex-none">
+                    <Activity className="w-4 h-4 mr-1" /> <span className="sm:inline">Output Stats</span>
+                  </Button>
+                  <InfoTooltip content="View final training metrics and results." impact="Displays the outcome of the training run in detail." />
+                </div>
+              )}
 
               <div className="flex items-center gap-1 group">
                 <Button variant="outline" size="sm" className="flex-1 sm:flex-none">
@@ -1607,7 +1645,13 @@ export function TrainPage() {
                       </Button>
                     </>
                   )}
-                  <Button size="sm" onClick={handleStart} className="w-full sm:w-auto" disabled={isStarting || !config.model_name_or_path || !config.dataset}>
+                  <Button 
+                    size="sm" 
+                    onClick={handleStart} 
+                    className="w-full sm:w-auto" 
+                    disabled={isStarting || !config.model_name_or_path || !config.dataset}
+                    variant={isCompleted ? "success" : "default"}
+                  >
                     <Play className="w-4 h-4 mr-1" /> {(isCompleted || isFailed) ? 'Restart Training' : isStarting ? 'Starting...' : 'Start Training'}
                   </Button>
                   <InfoTooltip content="Initializes the backend engine and starts the training job." impact="Locks resources and begins updating model weights based on your config." />
@@ -1617,12 +1661,6 @@ export function TrainPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {previewCommand && (
-            <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border/50">
-              <p className="text-xs font-medium mb-1 text-muted-foreground">Command Preview:</p>
-              <code className="text-xs break-all font-mono">{previewCommand}</code>
-            </div>
-          )}
           {(isRunning || isCompleted || lossHistory.length > 0) && (
             <div className="mb-4">
               <div className="flex justify-between text-sm mb-1">
@@ -1665,7 +1703,7 @@ export function TrainPage() {
               <LossChart data={trainerLogData} showEval={false} />
             </div>
           )}
-          <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto">
+          <div className="min-h-[160px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto shadow-inner">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Training logs will appear here...</p>
             ) : (
@@ -1676,6 +1714,145 @@ export function TrainPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" /> Training Configuration Preview
+            </DialogTitle>
+            <DialogDescription>
+              Review the parameters and command before starting the training process.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Settings className="w-4 h-4" /> Parameters
+              </h3>
+              <ScrollArea className="h-[300px] rounded-md border border-primary/10 bg-muted/20 p-4">
+                <div className="space-y-2">
+                  {previewConfig && Object.entries(previewConfig).map(([key, value]) => (
+                    <div key={key} className="flex justify-between gap-4 text-xs border-b border-primary/5 pb-1">
+                      <span className="text-muted-foreground font-mono">{key}</span>
+                      <span className="text-foreground font-medium text-right break-all">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Rocket className="w-4 h-4" /> Command Preview
+              </h3>
+              <div className="h-[300px] rounded-md border border-primary/10 bg-black/40 p-4 font-mono text-[10px] text-green-400 overflow-y-auto whitespace-pre-wrap break-all shadow-inner">
+                {previewCommand}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button onClick={() => setShowPreviewModal(false)}>Close Preview</Button>
+            <Button variant="success" onClick={() => { setShowPreviewModal(false); handleStart(); }}>
+              <Play className="w-4 h-4 mr-2" /> Start Training Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Output Stats Modal */}
+      <Dialog open={showOutputStatsModal} onOpenChange={setShowOutputStatsModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-primary">
+              <Activity className="w-5 h-5" /> Training Performance Summary
+            </DialogTitle>
+            <DialogDescription>
+              A breakdown of efficiency and loss metrics from the completed run.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[500px] mt-4 pr-4">
+            {outputResults && outputResults.found ? (() => {
+              // Consolidate all metrics from different files into one unique set
+              const allMetrics = Object.entries(outputResults).reduce((acc, [fileName, data]) => {
+                if (fileName === 'found' || typeof data !== 'object') return acc;
+                return { ...acc, ...data };
+              }, {} as Record<string, any>);
+
+              // Group metrics for better organization
+              const mainMetrics = ['train_loss', 'epoch', 'num_input_tokens_seen'];
+              const performanceMetrics = ['train_runtime', 'train_samples_per_second', 'train_steps_per_second', 'total_flos'];
+
+              const groups = [
+                { title: 'Goal Metrics', keys: Object.keys(allMetrics).filter(k => mainMetrics.includes(k)) },
+                { title: 'Performance Stats', keys: Object.keys(allMetrics).filter(k => performanceMetrics.includes(k)) },
+                { title: 'Other Details', keys: Object.keys(allMetrics).filter(k => !mainMetrics.includes(k) && !performanceMetrics.includes(k)) }
+              ].filter(g => g.keys.length > 0);
+
+              return (
+                <div className="space-y-6 pb-4">
+                  {groups.map((group, idx) => (
+                    <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${idx * 100}ms` }}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-1 w-6 bg-primary/30 rounded-full" />
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                          {group.title}
+                        </h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {group.keys.map((key) => {
+                          const value = allMetrics[key];
+                          const isLoss = key.includes('loss');
+                          const isEfficiency = performanceMetrics.includes(key);
+                          
+                          return (
+                            <div key={key} className="relative group overflow-hidden p-4 rounded-2xl bg-muted/20 border border-primary/5 hover:border-primary/20 hover:bg-muted/30 transition-all duration-300">
+                              <div className="absolute top-0 left-0 w-1 h-full bg-primary/10 group-hover:bg-primary/30 transition-colors" />
+                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mb-2 truncate" title={key.replace(/_/g, ' ')}>
+                                {key.replace(/_/g, ' ')}
+                              </p>
+                              <div className="flex flex-col gap-1">
+                                <p className={cn(
+                                  "text-xl font-black tabular-nums tracking-tight break-all",
+                                  isLoss ? "text-neon-cyan" : isEfficiency ? "text-primary" : "text-foreground"
+                                )}>
+                                  {typeof value === 'number' 
+                                    ? (value % 1 === 0 ? value : value.toFixed(key.includes('runtime') ? 2 : 4))
+                                    : String(value)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })() : (
+              <div className="flex flex-col items-center justify-center h-[300px] text-center border-2 border-dashed border-muted/50 rounded-2xl">
+                <XCircle className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground font-medium">No metrics available yet.</p>
+                <p className="text-xs text-muted-foreground/60 mt-1 max-w-[200px]">The training run may not have generated a state file.</p>
+              </div>
+            )}
+          </ScrollArea>
+          
+          <DialogFooter className="mt-4 pt-4 border-t border-primary/10">
+            <Button variant="ghost" onClick={() => setShowOutputStatsModal(false)}>Dismiss</Button>
+            <Button variant="default" onClick={handleEvaluate} className="gap-2">
+              Run Evaluation <ArrowRight className="w-4 h-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {showBrowser && (
         <DatasetBrowser

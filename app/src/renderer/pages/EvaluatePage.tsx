@@ -8,12 +8,17 @@ import { Slider } from '@/components/ui/slider'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight, MessageSquare } from 'lucide-react'
+import { Play, Square, Eye, LineChart, Bot, Download, ArrowRight, MessageSquare, Activity, XCircle } from 'lucide-react'
 import { InfoTooltip } from '@/components/ui/info-tooltip'
 import { api } from '@/hooks/useApi'
 import { useApp } from '@/contexts/AppContext'
 import { EvalMetricsChart } from '@/components/charts/EvalMetricsChart'
 import { cn } from '@/lib/utils'
+
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export function EvaluatePage() {
   const { lastTrainingResult, setLastEvalResult } = useApp()
@@ -25,7 +30,13 @@ export function EvaluatePage() {
   const [results, setResults] = useState<Record<string, number>>({})
   const [evalMetrics, setEvalMetrics] = useState<Record<string, any>>({})
   const [isCompleted, setIsCompleted] = useState(false)
+  const [isFailed, setIsFailed] = useState(false)
   const [evalOutputDir, setEvalOutputDir] = useState('')
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [showOutputStatsModal, setShowOutputStatsModal] = useState(false)
+  const [outputResults, setOutputResults] = useState<any>(null)
+  const [previewConfig, setPreviewConfig] = useState<any>(null)
+  const [isStarting, setIsStarting] = useState(false)
 
   useEffect(() => {
     if (lastTrainingResult) {
@@ -62,7 +73,7 @@ export function EvaluatePage() {
   const [topP, setTopP] = useState(0.7)
   
   const [outputDir, setOutputDir] = useState('')
-  const [commandPreview, setCommandPreview] = useState('')
+  const [previewCommand, setPreviewCommand] = useState('')
 
   const getConfig = () => ({
     model_name_or_path: modelPath,
@@ -83,10 +94,27 @@ export function EvaluatePage() {
 
   const handlePreview = async () => {
     try {
-      const response = await api.evaluate.preview(getConfig())
-      setCommandPreview(response.command)
+      const response = await api.evaluate.preview(getConfig()) as { command: string, config: any }
+      setPreviewCommand(response.command)
+      setPreviewConfig(response.config)
+      setShowPreviewModal(true)
     } catch (error) {
       console.error('Preview failed:', error)
+    }
+  }
+
+  const fetchOutputResults = async () => {
+    const evalDir = evalOutputDir || outputDir || ''
+    if (!evalDir) return
+    try {
+      const response = await fetch(`http://localhost:8000/api/evaluate/results/${evalDir}`)
+      if (response.ok) {
+        const data = await response.json()
+        setOutputResults(data)
+        setShowOutputStatsModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to fetch results:', error)
     }
   }
 
@@ -94,16 +122,16 @@ export function EvaluatePage() {
     if (!runId || !isRunning) return
     
     try {
-      const status = await api.evaluate.getStatus(runId) as any
-      setProgress(status.progress)
+      const statusResponse = await api.evaluate.getStatus(runId) as any
+      setProgress(statusResponse.progress)
       
-      if (status.results) {
-        setResults(status.results)
+      if (statusResponse.results) {
+        setResults(statusResponse.results)
       }
       
       // Track the output dir for results fetching
-      if (status.output_dir) {
-        setEvalOutputDir(status.output_dir)
+      if (statusResponse.output_dir) {
+        setEvalOutputDir(statusResponse.output_dir)
       }
       
       const logsResponse = await api.evaluate.getLogs(runId)
@@ -111,33 +139,25 @@ export function EvaluatePage() {
         setLogs(prev => [...prev, ...logsResponse.logs.slice(-20)])
       }
       
-      if (status.status === 'completed' || status.status === 'stopped') {
+      if (statusResponse.status === 'completed' || statusResponse.status === 'stopped' || statusResponse.status === 'failed') {
         setIsRunning(false)
-        if (status.status === 'completed') {
+        if (statusResponse.status === 'completed') {
           setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation completed!`])
           setIsCompleted(true)
+          setIsFailed(false)
           
           // Fetch detailed evaluation results
-          try {
-              const evalDir = status.output_dir || evalOutputDir || ''
-              if (evalDir) {
-                const response = await fetch(`http://localhost:8000/api/evaluate/results/${evalDir}`)
-              if (response.ok) {
-                const data = await response.json()
-                if (data.metrics) {
-                  setEvalMetrics(data.metrics)
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Failed to fetch eval results:', e)
-          }
+          fetchOutputResults()
+        } else if (statusResponse.status === 'failed') {
+          setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] Evaluation failed!`])
+          setIsFailed(true)
+          setIsCompleted(false)
         }
       }
     } catch (error) {
       console.error('Status poll failed:', error)
     }
-  }, [runId, isRunning])
+  }, [runId, isRunning, evalOutputDir, outputDir])
 
   useEffect(() => {
     if (!isRunning || !runId) return
@@ -427,15 +447,15 @@ export function EvaluatePage() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Command Preview</label>
               <div className="p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs">
-                {commandPreview || 'Click Preview to see command'}
+                {previewCommand || 'Click Preview to see command'}
               </div>
             </div>
 
             <div className="flex items-center gap-1 group">
               <Button variant="outline" className="w-full" onClick={handlePreview}>
-                <Eye className="w-4 h-4 mr-2" /> Preview Command
+                <Eye className="w-4 h-4 mr-2" /> Preview Config
               </Button>
-              <InfoTooltip content="Generates the CLI command for this evaluation run." impact="Allows manual verification of all flags and paths before execution." />
+              <InfoTooltip content="Shows the full evaluation configuration and command." impact="Allows manual verification of all flags and paths before execution." />
             </div>
 
             <div className="flex items-center gap-1 group mt-2">
@@ -541,19 +561,31 @@ export function EvaluatePage() {
               <LineChart className="w-4 h-4 text-primary" /> Actions
             </CardTitle>
             <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={handlePreview}>
+                <Eye className="w-4 h-4 mr-2" /> Preview
+              </Button>
+              {(isCompleted || isFailed) && (
+                <Button variant="outline" size="sm" onClick={fetchOutputResults}>
+                  <Activity className="w-4 h-4 mr-2" /> Output Stats
+                </Button>
+              )}
               {isRunning ? (
                 <div className="flex items-center gap-1 group w-full sm:w-auto">
-                  <Button variant="destructive" onClick={handleStop} className="w-full sm:w-auto">
-                    <Square className="w-4 h-4 mr-2" /> Stop Evaluation
+                  <Button variant="destructive" size="sm" onClick={handleStop} className="w-full sm:w-auto">
+                    <Square className="w-4 h-4 mr-2" /> Stop
                   </Button>
-                  <InfoTooltip content="Safety stops the active benchmark process." impact="Stops resource consumption; partial logs will be saved." />
                 </div>
               ) : (
                 <div className="flex items-center gap-1 group w-full sm:w-auto">
-                  <Button onClick={handleStart} className="w-full sm:w-auto" disabled={!modelPath}>
-                    <Play className="w-4 h-4 mr-2" /> Start Evaluation
+                  <Button 
+                    onClick={handleStart} 
+                    className="w-full sm:w-auto" 
+                    disabled={!modelPath}
+                    variant={isCompleted ? "success" : isFailed ? "destructive" : "default"}
+                    size="sm"
+                  >
+                    <Play className="w-4 h-4 mr-2" /> {isCompleted ? 'Restart Evaluation' : isFailed ? 'Retry Evaluation' : 'Start Evaluation'}
                   </Button>
-                  <InfoTooltip content="Begins the benchmarking process on the selected datasets." impact="Runs the model through thousands of questions to calculate accuracy scores." />
                 </div>
               )}
             </div>
@@ -588,17 +620,152 @@ export function EvaluatePage() {
               <EvalMetricsChart metrics={{...results, ...evalMetrics}} />
             </div>
           )}
-          <div className="min-h-[192px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto">
+          <div className="min-h-[192px] p-3 bg-muted/30 rounded-lg border border-border/50 font-mono text-xs max-h-[300px] overflow-y-auto shadow-inner">
             {logs.length === 0 ? (
               <p className="text-muted-foreground">Evaluation logs will appear here...</p>
             ) : (
               logs.map((log, i) => (
-                <p key={i}>{log}</p>
+                <p key={i} className="whitespace-pre-wrap">{log}</p>
               ))
             )}
           </div>
         </CardContent>
       </Card>
+      {/* Preview Modal */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" /> Evaluation Configuration Preview
+            </DialogTitle>
+            <DialogDescription>
+              Review the parameters and command before starting the evaluation.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Bot className="w-4 h-4" /> Parameters
+              </h3>
+              <ScrollArea className="h-[300px] rounded-md border border-primary/10 bg-muted/20 p-4">
+                <div className="space-y-2">
+                  {previewConfig && Object.entries(previewConfig).map(([key, value]) => (
+                    <div key={key} className="flex justify-between gap-4 text-xs border-b border-primary/5 pb-1">
+                      <span className="text-muted-foreground font-mono">{key}</span>
+                      <span className="text-foreground font-medium text-right break-all">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <LineChart className="w-4 h-4" /> Command Preview
+              </h3>
+              <div className="h-[300px] rounded-md border border-primary/10 bg-black/40 p-4 font-mono text-[10px] text-green-400 overflow-y-auto whitespace-pre-wrap break-all shadow-inner">
+                {previewCommand}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="mt-6">
+            <Button onClick={() => setShowPreviewModal(false)}>Close Preview</Button>
+            <Button variant="success" onClick={() => { setShowPreviewModal(false); handleStart(); }}>
+              <Play className="w-4 h-4 mr-2" /> Start Evaluation Now
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Output Stats Modal */}
+      <Dialog open={showOutputStatsModal} onOpenChange={setShowOutputStatsModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-neon-green">
+              <LineChart className="w-5 h-5" /> Evaluation Output Statistics
+            </DialogTitle>
+            <DialogDescription>
+              Benchmark scores and metrics from the completed evaluation run.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[450px] mt-4 pr-4">
+            {outputResults && outputResults.found ? (() => {
+              // Consolidate all metrics from different files into one unique set
+              const allMetrics = Object.entries(outputResults).reduce((acc, [fileName, data]) => {
+                if (['found', 'metrics', 'eval_history'].includes(fileName) || typeof data !== 'object') return acc;
+                return { ...acc, ...data };
+              }, {} as Record<string, any>);
+
+              // Determine groups based on metric types
+              const accuracyKeys = Object.keys(allMetrics).filter(k => k.includes('bleu') || k.includes('rouge') || k.includes('accuracy') || k.includes('score'));
+              const efficiencyKeys = Object.keys(allMetrics).filter(k => k.includes('runtime') || k.includes('per_second') || k.includes('flos'));
+              const otherKeys = Object.keys(allMetrics).filter(k => !accuracyKeys.includes(k) && !efficiencyKeys.includes(k));
+
+              const groups = [
+                { title: 'Goal & Benchmarks', keys: accuracyKeys, color: 'text-neon-cyan' },
+                { title: 'Efficiency Stats', keys: efficiencyKeys, color: 'text-primary' },
+                { title: 'Configuration Details', keys: otherKeys, color: 'text-foreground' }
+              ].filter(g => g.keys.length > 0);
+
+              return (
+                <div className="space-y-6">
+                  {groups.map((group, idx) => (
+                    <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-300" style={{ animationDelay: `${idx * 100}ms` }}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-1 w-6 bg-primary/30 rounded-full" />
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
+                          {group.title}
+                        </h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {group.keys.map((key) => {
+                          const value = allMetrics[key];
+                          return (
+                            <Card key={key} className="bg-muted/10 border-primary/5 hover:border-primary/20 transition-colors overflow-hidden group">
+                              <CardContent className="p-3 relative">
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full -mr-8 -mt-8 group-hover:bg-primary/10 transition-colors" />
+                                <p className="text-[10px] text-muted-foreground font-mono uppercase truncate relative z-10" title={key}>{key.replace('predict_', '').replace('eval_', '').replace(/_/g, ' ')}</p>
+                                <p className={cn(
+                                  "text-lg font-black tabular-nums relative z-10",
+                                  group.color
+                                )}>
+                                  {typeof value === 'number' 
+                                    ? (value % 1 === 0 ? value : value.toFixed(4))
+                                    : String(value)}
+                                </p>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })() : (
+              <div className="flex flex-col items-center justify-center h-full py-12 text-center">
+                <XCircle className="w-12 h-12 text-destructive mb-4 opacity-20" />
+                <p className="text-muted-foreground">No evaluation results found in the directory.</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">{evalOutputDir || outputDir}</p>
+              </div>
+            )}
+          </ScrollArea>
+          
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setShowOutputStatsModal(false)}>Close</Button>
+            <Button variant="default" onClick={() => navigate('/chat')}>
+              <MessageSquare className="w-4 h-4 mr-2" /> Go to Chat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
