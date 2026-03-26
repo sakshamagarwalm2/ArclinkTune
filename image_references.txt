@@ -1,0 +1,19 @@
+# ArclinkTune Image References
+
+This file lists the screenshots available in the `Public/` directory and their corresponding features in ArclinkTune.
+
+| Image Name | Description |
+|------------|-------------|
+| About.png | The "About" page showing version info, system status, and project credits. |
+| aftertraining.png | View of the system and model status after a successful training session. |
+| Autotuning.png | The core Auto-tuning interface where AI-driven hyperparameter optimization happens. |
+| Chat.png | The interactive chat interface for testing and talking to trained models. |
+| Evalavresult.png | Detailed evaluation results and metrics for trained models. |
+| Evalv.png | The Evaluation configuration and view page. |
+| Export.png | Model export interface for converting and saving models in different formats. |
+| Models.png | Model management page for browsing, downloading, and deleting LLM models. |
+| Monitering.png | Real-time system monitoring dashboard showing GPU, CPU, and RAM usage. |
+| Morningreportautuneresult.png | The AI-generated summary report after an Auto-tuning session. |
+| Selectdataset.png | Dataset browser and selection interface for training. |
+| Settings.png | Global application settings, including API keys and theme toggles. |
+| Training.png | The standard fine-tuning interface with manual parameter configuration. |

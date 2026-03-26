@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoTune Report - Qwen2.5-0.5B-Instruct-autotune-2026-03-26</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: #020617; color: #e2e8f0; padding: 32px;
+        line-height: 1.6;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { font-size: 28px; color: #f8fafc; margin-bottom: 4px; }
+    h2 { font-size: 20px; color: #f1f5f9; margin: 32px 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #1e293b; }
+    h3 { font-size: 16px; color: #cbd5e1; margin: 16px 0 8px 0; }
+    .subtitle { color: #64748b; font-size: 14px; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+    .badge-success { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+    .badge-info { background: #3b82f622; color: #60a5fa; border: 1px solid #3b82f644; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 16px 0; }
+    .stat-card {
+        background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px;
+    }
+    .stat-label { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { color: #22d3ee; font-size: 24px; font-weight: bold; margin-top: 4px; }
+    .best-config {
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        border: 2px solid #fbbf24;
+        border-radius: 12px; padding: 24px; margin: 16px 0;
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.1);
+    }
+    .best-config h3 { color: #fbbf24; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    th { background: #0f172a; color: #94a3b8; padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
+    td { padding: 10px 12px; border-bottom: 1px solid #1e293b; font-size: 13px; font-family: 'SF Mono', 'Fira Code', monospace; }
+    tr:hover { background: #0f172a; }
+    pre {
+        background: #0f172a; border: 1px solid #1e293b; border-radius: 8px;
+        padding: 16px; overflow-x: auto; font-size: 13px;
+        font-family: 'SF Mono', 'Fira Code', monospace; color: #a5f3fc;
+    }
+    .chart-container { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; margin: 16px 0; }
+    .log-container { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; max-height: 500px; overflow-y: auto; }
+    .summary-text { color: #cbd5e1; font-size: 15px; line-height: 1.8; padding: 16px; background: #0f172a; border-radius: 8px; border-left: 3px solid #22d3ee; }
+    .analysis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0; }
+    @media print { body { background: white; color: black; } }
+</style>
+</head>
+<body>
+<div class="container">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+        <div>
+            <h1>AutoTune Report</h1>
+            <p class="subtitle">Qwen2.5-0.5B-Instruct-autotune-2026-03-26 &middot; 2026-03-26</p>
+        </div>
+        <span class="badge badge-success">Completed</span>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Trials</div>
+            <div class="stat-value">5</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Best Score</div>
+            <div class="stat-value">18.6/10</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Best Loss</div>
+            <div class="stat-value">1.3752</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Time</div>
+            <div class="stat-value">2m 0s</div>
+        </div>
+    </div>
+
+    <h2>Best Configuration</h2>
+    <div class="best-config">
+        <h3>Trial #3 &mdash; Score: 18.6/10</h3>
+        <pre>bf16: true
+cutoff_len: 1024
+dataset: sharegpt_sample.json
+dataset_dir: data
+finetuning_type: lora
+gradient_accumulation_steps: 8
+learning_rate: 8.196e-05
+logging_steps: 5
+lora_alpha: 8
+lora_dropout: 0.1129
+lora_rank: 4
+lora_target: all
+lr_scheduler_type: cosine
+model_name_or_path: Qwen/Qwen2.5-0.5B-Instruct
+num_train_epochs: 6
+per_device_train_batch_size: 1
+save_steps: 100
+stage: sft
+template: default
+warmup_ratio: 0.054
+</pre>
+        <p style="color:#94a3b8;margin-top:12px;font-size:13px;">Rule-based: Unique configuration #3 via random search with deduplication</p>
+    </div>
+
+    <h2>Trial Rankings</h2>
+    <table>
+        <thead><tr><th>Rank</th><th>Trial</th><th>LR</th><th>Rank/Alpha</th><th>Batch</th><th>Scheduler</th><th>Loss</th><th>Score</th><th>Time</th></tr></thead>
+        <tbody>
+        <tr>
+            <td style="color:#22c55e;font-weight:bold">#1</td>
+            <td>3</td>
+            <td>8.20e-05</td>
+            <td>4/8</td>
+            <td>1</td>
+            <td>cosine</td>
+            <td>1.3752</td>
+            <td><span style="color:#22c55e;font-weight:bold">18.6</span></td>
+            <td>24s</td>
+        </tr>
+        <tr>
+            <td style="color:#22c55e;font-weight:bold">#2</td>
+            <td>4</td>
+            <td>2.65e-05</td>
+            <td>4/8</td>
+            <td>1</td>
+            <td>cosine</td>
+            <td>1.3752</td>
+            <td><span style="color:#22c55e;font-weight:bold">10.0</span></td>
+            <td>25s</td>
+        </tr>
+        <tr>
+            <td style="color:#22c55e;font-weight:bold">#3</td>
+            <td>1</td>
+            <td>2.86e-05</td>
+            <td>32/32</td>
+            <td>4</td>
+            <td>linear</td>
+            <td>1.3773</td>
+            <td><span style="color:#22c55e;font-weight:bold">5.0</span></td>
+            <td>25s</td>
+        </tr>
+        <tr>
+            <td style="color:#eab308;font-weight:bold">#4</td>
+            <td>2</td>
+            <td>7.31e-04</td>
+            <td>4/8</td>
+            <td>8</td>
+            <td>cosine</td>
+            <td>1.3795</td>
+            <td><span style="color:#eab308;font-weight:bold">5.0</span></td>
+            <td>25s</td>
+        </tr>
+        <tr>
+            <td style="color:#eab308;font-weight:bold">#5</td>
+            <td>5</td>
+            <td>2.31e-05</td>
+            <td>8/32</td>
+            <td>8</td>
+            <td>constant_with_warmup</td>
+            <td>1.3795</td>
+            <td><span style="color:#eab308;font-weight:bold">1.0</span></td>
+            <td>20s</td>
+        </tr></tbody>
+    </table>
+
+    <h2>Loss Curves</h2>
+    <div class="chart-container">
+        <canvas id="lossChart" height="300"></canvas>
+    </div>
+
+    <h2>Parameter Analysis</h2><div class="analysis-grid">
+                <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:16px;">
+                    <h4 style="color:#e2e8f0;margin:0 0 8px 0;font-size:14px;">Learning Rate</h4>
+                    <p style="color:#22d3ee;font-size:18px;font-weight:bold;margin:0;">Best: 8.196e-05</p>
+                    <p style="color:#64748b;font-size:12px;margin:4px 0 0 0;">Tested 5 values</p>
+                </div>
+                <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:16px;">
+                    <h4 style="color:#e2e8f0;margin:0 0 8px 0;font-size:14px;">Lora Rank</h4>
+                    <p style="color:#22d3ee;font-size:18px;font-weight:bold;margin:0;">Best: 4</p>
+                    <p style="color:#64748b;font-size:12px;margin:4px 0 0 0;">Tested 5 values</p>
+                </div>
+                <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:16px;">
+                    <h4 style="color:#e2e8f0;margin:0 0 8px 0;font-size:14px;">Lora Alpha</h4>
+                    <p style="color:#22d3ee;font-size:18px;font-weight:bold;margin:0;">Best: 8</p>
+                    <p style="color:#64748b;font-size:12px;margin:4px 0 0 0;">Tested 5 values</p>
+                </div>
+                <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:16px;">
+                    <h4 style="color:#e2e8f0;margin:0 0 8px 0;font-size:14px;">Per Device Train Batch Size</h4>
+                    <p style="color:#22d3ee;font-size:18px;font-weight:bold;margin:0;">Best: 1</p>
+                    <p style="color:#64748b;font-size:12px;margin:4px 0 0 0;">Tested 5 values</p>
+                </div></div>
+
+    <h2>Session Summary</h2>
+    <div class="summary-text">Session completed with 5 trials in 0.0 hours. Best trial: #3 with loss=1.3752 and AI score=18.6/10. Configuration: lr=8.196e-05, rank=4, alpha=8. Consider running a full training session with these parameters.</div>
+
+    <h2>AI Reasoning Log</h2>
+    <div class="log-container">
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:00</span>
+            <span style="color:#94a3b8;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[system]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">AutoTune session started: Qwen2.5-0.5B-Instruct-autotune-2026-03-26</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:00</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 1: AI is selecting configuration...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:00</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 1: lr=2.856e-05, rank=32, alpha=32</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:00</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 1: Starting training...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:25</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 1: Training completed. Loss=1.3773, Time=25s</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:25</span>
+            <span style="color:#a78bfa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[evaluate]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 1: Evaluating results...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:25</span>
+            <span style="color:#34d399;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[feedback]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 1: Score=5.0/10. Best trial: 1</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:25</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 2: AI is selecting configuration...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:25</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 2: lr=0.00073124, rank=4, alpha=8</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:25</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 2: Starting training...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:50</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 2: Training completed. Loss=1.3795, Time=25s</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:50</span>
+            <span style="color:#a78bfa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[evaluate]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 2: Evaluating results...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:50</span>
+            <span style="color:#34d399;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[feedback]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 2: Score=5.0/10. Best trial: 1</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:50</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 3: AI is selecting configuration...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:50</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 3: lr=8.196e-05, rank=4, alpha=8</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:45:50</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 3: Starting training...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:15</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 3: Training completed. Loss=1.3752, Time=24s</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:15</span>
+            <span style="color:#a78bfa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[evaluate]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 3: Evaluating results...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:15</span>
+            <span style="color:#34d399;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[feedback]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 3: Score=18.6/10. Best trial: 3</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:15</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 4: AI is selecting configuration...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:15</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 4: lr=2.653e-05, rank=4, alpha=8</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:15</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 4: Starting training...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:40</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 4: Training completed. Loss=1.3752, Time=25s</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:40</span>
+            <span style="color:#a78bfa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[evaluate]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 4: Evaluating results...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:40</span>
+            <span style="color:#34d399;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[feedback]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 4: Score=10.0/10. Best trial: 3</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:40</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 5: AI is selecting configuration...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:40</span>
+            <span style="color:#60a5fa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[think]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 5: lr=2.311e-05, rank=8, alpha=32</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:46:40</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 5: Starting training...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:47:00</span>
+            <span style="color:#fbbf24;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[train]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 5: Training completed. Loss=1.3795, Time=20s</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:47:00</span>
+            <span style="color:#a78bfa;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[evaluate]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 5: Evaluating results...</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:47:00</span>
+            <span style="color:#34d399;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[feedback]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Trial 5: Score=1.0/10. Best trial: 3</span>
+        </div>
+        <div style="padding:4px 0;border-bottom:1px solid #1e293b;">
+            <span style="color:#475569;font-size:12px;">16:47:00</span>
+            <span style="color:#94a3b8;font-weight:600;margin-left:8px;text-transform:uppercase;font-size:11px;">[system]</span>
+            <span style="color:#e2e8f0;margin-left:8px;font-size:13px;">Generating session summary...</span>
+        </div></div>
+
+    <h2>Raw Data</h2>
+    <details>
+        <summary style="cursor:pointer;color:#60a5fa;font-size:14px;">Show full session JSON</summary>
+        <pre style="margin-top:12px;max-height:400px;overflow-y:auto;font-size:11px;">{{
+  &quot;session_id&quot;: &quot;4c69a55e-bbad-42f6-8a78-a8861a014cca&quot;,
+  &quot;config&quot;: {{
+    &quot;session_name&quot;: &quot;Qwen2.5-0.5B-Instruct-autotune-2026-03-26&quot;,
+    &quot;base_model&quot;: &quot;Qwen/Qwen2.5-0.5B-Instruct&quot;,
+    &quot;dataset&quot;: &quot;sharegpt_sample.json&quot;,
+    &quot;template&quot;: &quot;default&quot;,
+    &quot;finetuning_type&quot;: &quot;lora&quot;,
+    &quot;probe_epochs&quot;: 2,
+    &quot;max_trials&quot;: 5,
+    &quot;max_runtime_hours&quot;: 6.0,
+    &quot;search_space&quot;: {{
+      &quot;learning_rate_min&quot;: 1e-05,
+      &quot;learning_rate_max&quot;: 0.001,
+      &quot;lora_rank_options&quot;: [
+        4,
+        8,
+        16,
+        32
+      ],
+      &quot;lora_alpha_options&quot;: [
+        8,
+        16,
+        32,
+        64
+      ],
+      &quot;lora_dropout_min&quot;: 0.0,
+      &quot;lora_dropout_max&quot;: 0.15,
+      &quot;batch_size_options&quot;: [
+        1,
+        2,
+        4,
+        8
+      ],
+      &quot;gradient_accumulation_options&quot;: [
+        4,
+        8,
+        16,
+        32
+      ],
+      &quot;lr_scheduler_options&quot;: [
+        &quot;cosine&quot;,
+        &quot;linear&quot;,
+        &quot;constant_with_warmup&quot;
+      ],
+      &quot;warmup_ratio_min&quot;: 0.0,
+      &quot;warmup_ratio_max&quot;: 0.1,
+      &quot;cutoff_len_options&quot;: [
+        512,
+        1024,
+        2048
+      ],
+      &quot;weight_decay_min&quot;: 0.0,
+      &quot;weight_decay_max&quot;: 0.1
+    }},
+    &quot;ai_provider&quot;: {{
+      &quot;provider&quot;: &quot;none&quot;,
+      &quot;gemini_api_key&quot;: null,
+      &quot;gemini_model&quot;: &quot;gemini-1.5-flash&quot;,
+      &quot;ollama_base_url&quot;: &quot;http://localhost:11434&quot;,
+      &quot;ollama_model&quot;: &quot;llama3.1:8b&quot;,
+      &quot;temperature&quot;: 0.3,
+      &quot;max_tokens&quot;: 2000
+    }},
+    &quot;optimization_goal&quot;: &quot;minimize_val_loss&quot;,
+    &quot;early_stopping_patience&quot;: 3,
+    &quot;base_training_config&quot;: {{}},
+    &quot;dataset_dir&quot;: &quot;data&quot;,
+    &quot;compute_device&quot;: &quot;auto&quot;
+  }},
+  &quot;status&quot;: &quot;completed&quot;,
+  &quot;current_trial&quot;: 5,
+  &quot;total_trials_completed&quot;: 5,
+  &quot;trials&quot;: [
+    {{
+      &quot;trial_id&quot;: &quot;925638a8-0189-4618-925b-8266410a8986&quot;,
+      &quot;trial_number&quot;: 1,
+      &quot;config&quot;: {{
+        &quot;trial_id&quot;: &quot;925638a8-0189-4618-925b-8266410a8986&quot;,
+        &quot;trial_number&quot;: 1,
+        &quot;learning_rate&quot;: 2.856e-05,
+        &quot;lora_rank&quot;: 32,
+        &quot;lora_alpha&quot;: 32,
+        &quot;lora_dropout&quot;: 0.0741,
+        &quot;per_device_train_batch_size&quot;: 4,
+        &quot;gradient_accumulation_steps&quot;: 4,
+        &quot;lr_scheduler_type&quot;: &quot;linear&quot;,
+        &quot;warmup_ratio&quot;: 0.0406,
+        &quot;cutoff_len&quot;: 1024,
+        &quot;weight_decay&quot;: 0.04284,
+        &quot;ai_reasoning&quot;: &quot;Rule-based: Balanced starting point using search space heuristics&quot;,
+        &quot;ai_hypothesis&quot;: &quot;This moderate configuration should provide a solid baseline for comparison&quot;
+      }},
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;final_train_loss&quot;: 1.3773,
+      &quot;final_val_loss&quot;: null,
+      &quot;loss_curve&quot;: [
+        {{
+          &quot;step&quot;: 0,
+          &quot;loss&quot;: 1.3773
+        }}
+      ],
+      &quot;perplexity&quot;: null,
+      &quot;training_time_seconds&quot;: 25.0,
+      &quot;ai_evaluation&quot;: &quot;Rule-based evaluation: loss=1.3773, trend=plateaued&quot;,
+      &quot;ai_score&quot;: 5.0,
+      &quot;rank&quot;: 3
+    }},
+    {{
+      &quot;trial_id&quot;: &quot;f205f283-e3b0-4449-9461-ef5c2258fb70&quot;,
+      &quot;trial_number&quot;: 2,
+      &quot;config&quot;: {{
+        &quot;trial_id&quot;: &quot;f205f283-e3b0-4449-9461-ef5c2258fb70&quot;,
+        &quot;trial_number&quot;: 2,
+        &quot;learning_rate&quot;: 0.00073124,
+        &quot;lora_rank&quot;: 4,
+        &quot;lora_alpha&quot;: 8,
+        &quot;lora_dropout&quot;: 0.0311,
+        &quot;per_device_train_batch_size&quot;: 8,
+        &quot;gradient_accumulation_steps&quot;: 4,
+        &quot;lr_scheduler_type&quot;: &quot;cosine&quot;,
+        &quot;warmup_ratio&quot;: 0.0218,
+        &quot;cutoff_len&quot;: 2048,
+        &quot;weight_decay&quot;: 0.07229,
+        &quot;ai_reasoning&quot;: &quot;Rule-based: Unique configuration #2 via random search with deduplication&quot;,
+        &quot;ai_hypothesis&quot;: &quot;Exploring unvisited regions of the parameter space&quot;
+      }},
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;final_train_loss&quot;: 1.3795,
+      &quot;final_val_loss&quot;: null,
+      &quot;loss_curve&quot;: [
+        {{
+          &quot;step&quot;: 0,
+          &quot;loss&quot;: 1.3795
+        }}
+      ],
+      &quot;perplexity&quot;: null,
+      &quot;training_time_seconds&quot;: 25.0,
+      &quot;ai_evaluation&quot;: &quot;Rule-based evaluation: loss=1.3795, trend=plateaued&quot;,
+      &quot;ai_score&quot;: 5.0,
+      &quot;rank&quot;: 4
+    }},
+    {{
+      &quot;trial_id&quot;: &quot;76fb0f03-9388-4028-baa0-c6a2e182832f&quot;,
+      &quot;trial_number&quot;: 3,
+      &quot;config&quot;: {{
+        &quot;trial_id&quot;: &quot;76fb0f03-9388-4028-baa0-c6a2e182832f&quot;,
+        &quot;trial_number&quot;: 3,
+        &quot;learning_rate&quot;: 8.196e-05,
+        &quot;lora_rank&quot;: 4,
+        &quot;lora_alpha&quot;: 8,
+        &quot;lora_dropout&quot;: 0.1129,
+        &quot;per_device_train_batch_size&quot;: 1,
+        &quot;gradient_accumulation_steps&quot;: 8,
+        &quot;lr_scheduler_type&quot;: &quot;cosine&quot;,
+        &quot;warmup_ratio&quot;: 0.054,
+        &quot;cutoff_len&quot;: 1024,
+        &quot;weight_decay&quot;: 0.07863,
+        &quot;ai_reasoning&quot;: &quot;Rule-based: Unique configuration #3 via random search with deduplication&quot;,
+        &quot;ai_hypothesis&quot;: &quot;Exploring unvisited regions of the parameter space&quot;
+      }},
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;final_train_loss&quot;: 1.3752,
+      &quot;final_val_loss&quot;: null,
+      &quot;loss_curve&quot;: [
+        {{
+          &quot;step&quot;: 0,
+          &quot;loss&quot;: 1.3752
+        }}
+      ],
+      &quot;perplexity&quot;: null,
+      &quot;training_time_seconds&quot;: 24.0,
+      &quot;ai_evaluation&quot;: &quot;Rule-based evaluation: loss=1.3752, trend=plateaued&quot;,
+      &quot;ai_score&quot;: 18.6,
+      &quot;rank&quot;: 1
+    }},
+    {{
+      &quot;trial_id&quot;: &quot;0a50c9e5-fac5-410f-b3cb-57b4f41c6fa8&quot;,
+      &quot;trial_number&quot;: 4,
+      &quot;config&quot;: {{
+        &quot;trial_id&quot;: &quot;0a50c9e5-fac5-410f-b3cb-57b4f41c6fa8&quot;,
+        &quot;trial_number&quot;: 4,
+        &quot;learning_rate&quot;: 2.653e-05,
+        &quot;lora_rank&quot;: 4,
+        &quot;lora_alpha&quot;: 8,
+        &quot;lora_dropout&quot;: 0.1403,
+        &quot;per_device_train_batch_size&quot;: 1,
+        &quot;gradient_accumulation_steps&quot;: 16,
+        &quot;lr_scheduler_type&quot;: &quot;cosine&quot;,
+        &quot;warmup_ratio&quot;: 0.095,
+        &quot;cutoff_len&quot;: 512,
+        &quot;weight_decay&quot;: 0.05349,
+        &quot;ai_reasoning&quot;: &quot;Rule-based: Unique configuration #4 via random search with deduplication&quot;,
+        &quot;ai_hypothesis&quot;: &quot;Exploring unvisited regions of the parameter space&quot;
+      }},
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;final_train_loss&quot;: 1.3752,
+      &quot;final_val_loss&quot;: null,
+      &quot;loss_curve&quot;: [
+        {{
+          &quot;step&quot;: 0,
+          &quot;loss&quot;: 1.3752
+        }}
+      ],
+      &quot;perplexity&quot;: null,
+      &quot;training_time_seconds&quot;: 25.0,
+      &quot;ai_evaluation&quot;: &quot;Rule-based evaluation: loss=1.3752, trend=plateaued&quot;,
+      &quot;ai_score&quot;: 10.0,
+      &quot;rank&quot;: 2
+    }},
+    {{
+      &quot;trial_id&quot;: &quot;db3f8aca-b2a2-43f1-b018-6b5431bb176e&quot;,
+      &quot;trial_number&quot;: 5,
+      &quot;config&quot;: {{
+        &quot;trial_id&quot;: &quot;db3f8aca-b2a2-43f1-b018-6b5431bb176e&quot;,
+        &quot;trial_number&quot;: 5,
+        &quot;learning_rate&quot;: 2.311e-05,
+        &quot;lora_rank&quot;: 8,
+        &quot;lora_alpha&quot;: 32,
+        &quot;lora_dropout&quot;: 0.03,
+        &quot;per_device_train_batch_size&quot;: 8,
+        &quot;gradient_accumulation_steps&quot;: 32,
+        &quot;lr_scheduler_type&quot;: &quot;constant_with_warmup&quot;,
+        &quot;warmup_ratio&quot;: 0.0474,
+        &quot;cutoff_len&quot;: 1024,
+        &quot;weight_decay&quot;: 0.05942,
+        &quot;ai_reasoning&quot;: &quot;Rule-based: Unique configuration #5 via random search with deduplication&quot;,
+        &quot;ai_hypothesis&quot;: &quot;Exploring unvisited regions of the parameter space&quot;
+      }},
+      &quot;status&quot;: &quot;completed&quot;,
+      &quot;final_train_loss&quot;: 1.3795,
+      &quot;final_val_loss&quot;: null,
+      &quot;loss_curve&quot;: [
+        {{
+          &quot;step&quot;: 0,
+          &quot;loss&quot;: 1.3795
+        }}
+      ],
+      &quot;perplexity&quot;: null,
+      &quot;training_time_seconds&quot;: 20.0,
+      &quot;ai_evaluation&quot;: &quot;Rule-based evaluation: loss=1.3795, trend=plateaued&quot;,
+      &quot;ai_score&quot;: 1.0,
+      &quot;rank&quot;: 5
+    }}
+  ],
+  &quot;best_trial_id&quot;: &quot;76fb0f03-9388-4028-baa0-c6a2e182832f&quot;,
+  &quot;start_time&quot;: &quot;2026-03-26T16:45:00.685005&quot;,
+  &quot;end_time&quot;: &quot;2026-03-26T16:47:00.904029&quot;,
+  &quot;ai_session_summary&quot;: &quot;Session completed with 5 trials in 0.0 hours. Best trial: #3 with loss=1.3752 and AI score=18.6/10. Configuration: lr=8.196e-05, rank=4, alpha=8. Consider running a full training session with these parameters.&quot;,
+  &quot;loop_log&quot;: [
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:00.685005&quot;,
+      &quot;step&quot;: &quot;system&quot;,
+      &quot;message&quot;: &quot;AutoTune session started: Qwen2.5-0.5B-Instruct-autotune-2026-03-26&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:00.685005&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 1: AI is selecting configuration...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:00.686463&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 1: lr=2.856e-05, rank=32, alpha=32&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:00.687468&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 1: Starting training...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:25.724310&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 1: Training completed. Loss=1.3773, Time=25s&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:25.724310&quot;,
+      &quot;step&quot;: &quot;evaluate&quot;,
+      &quot;message&quot;: &quot;Trial 1: Evaluating results...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:25.724310&quot;,
+      &quot;step&quot;: &quot;feedback&quot;,
+      &quot;message&quot;: &quot;Trial 1: Score=5.0/10. Best trial: 1&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:25.724310&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 2: AI is selecting configuration...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:25.729001&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 2: lr=0.00073124, rank=4, alpha=8&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:25.729001&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 2: Starting training...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:50.761407&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 2: Training completed. Loss=1.3795, Time=25s&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:50.761407&quot;,
+      &quot;step&quot;: &quot;evaluate&quot;,
+      &quot;message&quot;: &quot;Trial 2: Evaluating results...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:50.761407&quot;,
+      &quot;step&quot;: &quot;feedback&quot;,
+      &quot;message&quot;: &quot;Trial 2: Score=5.0/10. Best trial: 1&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:50.761407&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 3: AI is selecting configuration...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:50.761407&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 3: lr=8.196e-05, rank=4, alpha=8&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:45:50.761407&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 3: Starting training...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:15.768901&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 3: Training completed. Loss=1.3752, Time=24s&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:15.768901&quot;,
+      &quot;step&quot;: &quot;evaluate&quot;,
+      &quot;message&quot;: &quot;Trial 3: Evaluating results...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:15.768901&quot;,
+      &quot;step&quot;: &quot;feedback&quot;,
+      &quot;message&quot;: &quot;Trial 3: Score=18.6/10. Best trial: 3&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:15.768901&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 4: AI is selecting configuration...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:15.769914&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 4: lr=2.653e-05, rank=4, alpha=8&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:15.769914&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 4: Starting training...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:40.811405&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 4: Training completed. Loss=1.3752, Time=25s&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:40.811405&quot;,
+      &quot;step&quot;: &quot;evaluate&quot;,
+      &quot;message&quot;: &quot;Trial 4: Evaluating results...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:40.811405&quot;,
+      &quot;step&quot;: &quot;feedback&quot;,
+      &quot;message&quot;: &quot;Trial 4: Score=10.0/10. Best trial: 3&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:40.811405&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 5: AI is selecting configuration...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:40.816877&quot;,
+      &quot;step&quot;: &quot;think&quot;,
+      &quot;message&quot;: &quot;Trial 5: lr=2.311e-05, rank=8, alpha=32&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:46:40.816877&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 5: Starting training...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:47:00.899055&quot;,
+      &quot;step&quot;: &quot;train&quot;,
+      &quot;message&quot;: &quot;Trial 5: Training completed. Loss=1.3795, Time=20s&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:47:00.899055&quot;,
+      &quot;step&quot;: &quot;evaluate&quot;,
+      &quot;message&quot;: &quot;Trial 5: Evaluating results...&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:47:00.899055&quot;,
+      &quot;step&quot;: &quot;feedback&quot;,
+      &quot;message&quot;: &quot;Trial 5: Score=1.0/10. Best trial: 3&quot;
+    }},
+    {{
+      &quot;timestamp&quot;: &quot;2026-03-26T16:47:00.904029&quot;,
+      &quot;step&quot;: &quot;system&quot;,
+      &quot;message&quot;: &quot;Generating session summary...&quot;
+    }}
+  ]
+}}</pre>
+    </details>
+</div>
+
+<script>
+try {
+    const ctx = document.getElementById('lossChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: { datasets: [{{"label": "Trial 3", "data": [{{"x": 0, "y": 1.3752}}], "borderColor": "#22d3ee", "borderWidth": 3, "pointRadius": 0, "fill": false}}, {{"label": "Trial 4", "data": [{{"x": 0, "y": 1.3752}}], "borderColor": "rgba(160, 190, 255, 0.4)", "borderWidth": 1, "pointRadius": 0, "fill": false}}, {{"label": "Trial 1", "data": [{{"x": 0, "y": 1.3773}}], "borderColor": "rgba(115, 160, 255, 0.4)", "borderWidth": 1, "pointRadius": 0, "fill": false}}, {{"label": "Trial 2", "data": [{{"x": 0, "y": 1.3795}}], "borderColor": "rgba(130, 170, 255, 0.4)", "borderWidth": 1, "pointRadius": 0, "fill": false}}, {{"label": "Trial 5", "data": [{{"x": 0, "y": 1.3795}}], "borderColor": "rgba(175, 200, 255, 0.4)", "borderWidth": 1, "pointRadius": 0, "fill": false}}] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { type: 'linear', title: { display: true, text: 'Step', color: '#64748b' }, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                y: { title: { display: true, text: 'Loss', color: '#64748b' }, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }
+            },
+            plugins: {
+                legend: { labels: { color: '#e2e8f0' } },
+                tooltip: { mode: 'index', intersect: false }
+            }
+        }
+    });
+} catch(e) { console.error('Chart error:', e); }
+</script>
+</body>
+</html>
